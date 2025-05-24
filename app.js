@@ -182,6 +182,149 @@ function cleanHtml(html) {
     .trim();
 }
 
+// Gelişmiş süre hesaplama fonksiyonu
+function calculateReadingTime(text, hasCode = false, codeContent = "") {
+  if (!text && !codeContent) return 2;
+
+  // Temel okuma parametreleri
+  const wordsPerMinute = 200; // Biraz daha hızlı okuma
+  const wordsPerSecond = wordsPerMinute / 60;
+
+  // Metin analizi
+  const wordCount = text ? text.trim().split(/\s+/).length : 0;
+  let baseReadingTime = wordCount / wordsPerSecond;
+
+  // Kod analizi
+  let codeAnalysisTime = 0;
+  if (hasCode && codeContent) {
+    codeAnalysisTime = analyzeCodeComplexity(codeContent);
+  }
+
+  // Toplam süre
+  let totalTime = baseReadingTime + codeAnalysisTime;
+
+  // Minimum süreler (kısaltıldı)
+  if (hasCode) {
+    totalTime = Math.max(4, totalTime); // Kod varsa minimum 4 saniye
+  } else {
+    totalTime = Math.max(2, totalTime); // Sadece metin varsa minimum 2 saniye
+  }
+
+  // Maksimum süre sınırı (kısaltıldı)
+  totalTime = Math.min(20, totalTime);
+
+  return Math.round(totalTime);
+}
+
+// Kod karmaşıklığını analiz eden fonksiyon
+function analyzeCodeComplexity(code) {
+  if (!code) return 0;
+
+  const lines = code.split("\n").filter((line) => line.trim() !== "");
+  let complexityScore = 0;
+
+  // Temel süre: satır başına 0.5 saniye (kısaltıldı)
+  complexityScore += lines.length * 0.5;
+
+  // Kod yapıları analizi (puanlar daha da kısaltıldı)
+  const codeStructures = {
+    // Kontrol yapıları (daha fazla düşünme gerektirir)
+    if: 1.2,
+    else: 0.8,
+    for: 1.5,
+    while: 1.5,
+    switch: 1.5,
+    case: 0.6,
+    try: 1.2,
+    catch: 1.2,
+    finally: 0.8,
+
+    // Fonksiyon tanımları
+    function: 1.5,
+    "=>": 1.2, // Arrow functions
+    return: 0.6,
+
+    // Nesne ve dizi işlemleri
+    map: 1.2,
+    filter: 1.2,
+    reduce: 2,
+    forEach: 0.8,
+    find: 0.8,
+    sort: 1.2,
+    splice: 1.2,
+    push: 0.4,
+    pop: 0.4,
+
+    // Async işlemler
+    async: 1.2,
+    await: 1.2,
+    Promise: 1.5,
+    then: 1.2,
+    catch: 1.2,
+
+    // DOM işlemleri
+    document: 0.8,
+    getElementById: 0.8,
+    querySelector: 0.8,
+    addEventListener: 1.2,
+
+    // Regex ve string işlemleri
+    match: 1.2,
+    replace: 0.8,
+    split: 0.6,
+    join: 0.6,
+    substring: 0.8,
+
+    // Matematiksel işlemler
+    "Math.": 0.8,
+    parseInt: 0.6,
+    parseFloat: 0.6,
+
+    // Konsol ve debug
+    "console.log": 0.2,
+    "console.error": 0.2,
+  };
+
+  // Kod yapılarını say ve puan ekle
+  for (const [structure, points] of Object.entries(codeStructures)) {
+    const regex = new RegExp(structure.replace(".", "\\."), "gi");
+    const matches = code.match(regex);
+    if (matches) {
+      complexityScore += matches.length * points;
+    }
+  }
+
+  // Parantez derinliği analizi (nested yapılar) - daha da kısaltıldı
+  let maxDepth = 0;
+  let currentDepth = 0;
+  for (const char of code) {
+    if (char === "{" || char === "(" || char === "[") {
+      currentDepth++;
+      maxDepth = Math.max(maxDepth, currentDepth);
+    } else if (char === "}" || char === ")" || char === "]") {
+      currentDepth--;
+    }
+  }
+  complexityScore += maxDepth * 0.8;
+
+  // Uzun satırlar (80+ karakter) - daha da kısaltıldı
+  const longLines = lines.filter((line) => line.length > 80).length;
+  complexityScore += longLines * 0.6;
+
+  // Yorum satırları (açıklama gerektirir) - daha da kısaltıldı
+  const commentLines = lines.filter((line) => line.trim().startsWith("//") || line.includes("/*")).length;
+  complexityScore += commentLines * 0.2;
+
+  // String literal'lar (regex, template strings) - daha da kısaltıldı
+  const stringComplexity =
+    (code.match(/`[^`]*`/g) || []).length * 0.8 + // Template strings
+    (code.match(/\/.*\//g) || []).length * 1.2 + // Regex
+    (code.match(/"[^"]*"/g) || []).length * 0.1; // Normal strings
+  complexityScore += stringComplexity;
+
+  return complexityScore;
+}
+
 // Kod formatını düzelten gelişmiş fonksiyon
 function formatCode(code) {
   if (!code) return "";
@@ -531,8 +674,6 @@ app.post("/generate-video-content", async (req, res) => {
             return "result";
           }
         };
-        \`
-
         \`\`\`
         `;
 
@@ -546,6 +687,9 @@ app.post("/generate-video-content", async (req, res) => {
     // Kod bloklarını işle ve carbon-now-cli ile görsel oluştur
     const processedSteps = await processCodeBlocks(videoContent.steps, questionId);
 
+    // Toplam süreyi hesapla
+    const totalDuration = processedSteps.reduce((total, step) => total + (step.duration || 0), 0);
+
     res.json({
       success: true,
       data: {
@@ -553,11 +697,148 @@ app.post("/generate-video-content", async (req, res) => {
         description: videoContent.description,
         keywords: videoContent.keywords,
         steps: processedSteps,
+        estimatedDuration: totalDuration,
+        estimatedDurationFormatted: `${Math.floor(totalDuration / 60)}:${(totalDuration % 60).toString().padStart(2, "0")}`,
       },
     });
   } catch (error) {
     console.error("Video içerik oluşturma hatası:", error);
     res.json({ success: false, error: error.message });
+  }
+});
+
+// Progress tracking için yeni endpoint
+app.get("/generate-video-content-stream/:questionId", async (req, res) => {
+  const questionId = req.params.questionId;
+
+  // SSE headers
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+    "Access-Control-Allow-Origin": "*",
+  });
+
+  function sendProgress(step, progress, message, data = null) {
+    const progressData = {
+      step,
+      progress,
+      message,
+      data,
+    };
+    res.write(`data: ${JSON.stringify(progressData)}\n\n`);
+  }
+
+  try {
+    // Sabit API key kullan
+    const geminiApiKey = "AIzaSyBtVpQaOiy9mcN06qPKsLXsrUdosVjEtnU";
+
+    const questions = await loadQuestions();
+    const question = questions.find((q) => q.id == questionId);
+
+    if (!question) {
+      sendProgress(0, 0, "Soru bulunamadı", { error: true });
+      res.end();
+      return;
+    }
+
+    // Adım 1: AI ile içerik oluşturma
+    sendProgress(0, 10, "AI ile içerik oluşturuluyor...");
+
+    const genAI = new GoogleGenerativeAI(geminiApiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+    const prompt = `
+        Create YouTube video content for the following StackOverflow question and answer:
+
+        QUESTION TITLE: ${question.title}
+        CATEGORY: ${question.category}
+        QUESTION CONTENT: ${question.fullBody || question.body || question.description}
+        ACCEPTED ANSWER: ${question.answers && question.answers.length > 0 ? question.answers.find((a) => a.isAccepted)?.body || question.answers[0].body : "No answer found"}
+
+        Please respond using the following format:
+
+        VIDEO_TITLE: [English, SEO-friendly, searchable video title]
+        DESCRIPTION: [Short SEO description including keywords from video title]
+        KEYWORDS: [5 keywords of 1-3 words each, comma separated]
+        STEPS:
+        1. [Direct explanation as if teaching someone - explain what the problem is]
+        2. [Show the solution with actual code - MUST include CODE_BLOCK with code]
+        3. [Explain how the code works]
+        ...
+
+        IMPORTANT RULES:
+        - Each step should be 1-2 sentences maximum
+        - DO NOT give video creation tips or suggestions
+        - Focus ONLY on explaining the programming concept/solution
+        - ALWAYS include actual code examples using CODE_BLOCK format
+        - Explain the solution step by step as if teaching directly to the viewer
+        - Do not say "how to" - just explain what the code does
+        - For EVERY step that involves code, include a CODE_BLOCK showing that specific part
+        - Show code progression step by step - each step should have its own CODE_BLOCK if code changes
+        - Break down complex solutions into multiple steps with individual code blocks
+
+        MANDATORY:
+        - Include multiple CODE_BLOCK sections showing the solution step by step
+        - Each step that introduces new code or modifies existing code MUST have its own CODE_BLOCK
+        - Show the complete working code at the end
+
+        Example format for progressive code explanation:
+        Step 1: First we create the basic structure.
+        CODE_BLOCK:
+        \`\`\`javascript
+        const basicStructure = {};
+        \`\`\`
+
+        Step 2: Then we add the main functionality.
+        CODE_BLOCK:
+        \`\`\`javascript
+        const basicStructure = {
+          mainFunction: function() {
+            return "result";
+          }
+        };
+        \`\`\`
+        `;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+
+    // Adım 2: Kod blokları analizi
+    sendProgress(1, 30, "Kod blokları analiz ediliyor...");
+    const videoContent = parseGeminiResponse(text);
+
+    // Adım 3: Süre hesaplamaları
+    sendProgress(2, 50, "Süre hesaplamaları yapılıyor...");
+
+    // Adım 4: Video içeriği hazırlama
+    sendProgress(3, 70, "Video içeriği hazırlanıyor...");
+
+    // Adım 5: Kod resimleri oluşturma
+    const processedSteps = await processCodeBlocksWithProgress(videoContent.steps, questionId, sendProgress);
+
+    // Toplam süreyi hesapla
+    const totalDuration = processedSteps.reduce((total, step) => total + (step.duration || 0), 0);
+
+    // Tamamlandı
+    sendProgress(5, 100, "Tamamlandı!", {
+      success: true,
+      data: {
+        title: videoContent.title,
+        description: videoContent.description,
+        keywords: videoContent.keywords,
+        steps: processedSteps,
+        estimatedDuration: totalDuration,
+        estimatedDurationFormatted: `${Math.floor(totalDuration / 60)}:${(totalDuration % 60).toString().padStart(2, "0")}`,
+      },
+    });
+
+    res.end();
+  } catch (error) {
+    console.error("Video içerik oluşturma hatası:", error);
+    sendProgress(0, 0, "Hata oluştu: " + error.message, { error: true });
+    res.end();
   }
 });
 
@@ -650,8 +931,8 @@ function parseGeminiResponse(text) {
   return { title, description, keywords, steps };
 }
 
-// Kod bloklarını işle ve carbon-now-cli ile görsel oluştur
-async function processCodeBlocks(steps, questionId) {
+// Kod bloklarını işle ve carbon-now-cli ile görsel oluştur (Progress tracking ile)
+async function processCodeBlocksWithProgress(steps, questionId, sendProgress) {
   const execAsync = promisify(exec);
   const processedSteps = [];
 
@@ -661,15 +942,29 @@ async function processCodeBlocks(steps, questionId) {
     fsSync.mkdirSync(codeImagesDir, { recursive: true });
   }
 
+  // Kod bloğu olan adımları say
+  const codeSteps = steps.filter((step) => step.hasCode && step.text.includes("CODE_BLOCK:"));
+  const totalCodeBlocks = codeSteps.length;
+
+  let processedCodeBlocks = 0;
+
   for (let i = 0; i < steps.length; i++) {
     const step = steps[i];
     let processedStep = { text: step.text };
 
     console.log(`Processing step ${i}: hasCode=${step.hasCode}, includes CODE_BLOCK=${step.text.includes("CODE_BLOCK:")}`);
-    console.log(`Step text: ${step.text}`);
 
     if (step.hasCode && step.text.includes("CODE_BLOCK:")) {
       try {
+        processedCodeBlocks++;
+
+        // Progress güncelle
+        const baseProgress = 80; // İlk 4 adım için %80
+        const codeImageProgress = (processedCodeBlocks / totalCodeBlocks) * 15; // Kod resimleri için %15
+        const totalProgress = Math.min(95, baseProgress + codeImageProgress);
+
+        sendProgress(4, totalProgress, `Kod resimleri oluşturuluyor... (${processedCodeBlocks}/${totalCodeBlocks})`);
+
         console.log("Found code block, processing...");
 
         // Kod bloğunu çıkar - daha esnek regex
@@ -699,11 +994,11 @@ async function processCodeBlocks(steps, questionId) {
           fsSync.writeFileSync(filePath, code);
           console.log(`Code written to file: ${filePath}`);
 
-          // Carbon-now-cli ile görsel oluştur - basit komut kullan
+          // Carbon-now-cli ile görsel oluştur - headless mod ile
           const imageName = `code_${questionId}_${i}_${timestamp}`;
 
-          // Carbon-now-cli komutunu basitleştir
-          const carbonCommand = `npx carbon-now "${filePath}" --theme "material" --background-color "transparent" --no-window-controls`;
+          // Headless mod için carbon-now-cli komutunu düzelt
+          const carbonCommand = `npx carbon-now "${filePath}" --theme "material" --background-color "transparent" --no-window-controls --headless`;
 
           console.log(`Running command: ${carbonCommand}`);
           const result = await execAsync(carbonCommand);
@@ -748,6 +1043,23 @@ async function processCodeBlocks(steps, questionId) {
         processedStep.text = step.text.replace(/CODE_BLOCK:\s*\n```[\w]*\n[\s\S]*?\n```/g, "").trim();
       }
     }
+
+    // Süre hesaplama
+    const cleanText = processedStep.text.replace(/CODE_BLOCK:\s*\n```[\w]*\n[\s\S]*?\n```/g, "").trim();
+    let codeContent = "";
+
+    // Eğer kod varsa, kod içeriğini çıkar
+    if (step.hasCode && step.text.includes("CODE_BLOCK:")) {
+      const codeMatch = step.text.match(/CODE_BLOCK:\s*\n```[\w]*\n([\s\S]*?)\n```/);
+      if (codeMatch) {
+        codeContent = codeMatch[1];
+      }
+    }
+
+    const duration = calculateReadingTime(cleanText, step.hasCode, codeContent);
+    processedStep.duration = duration;
+
+    console.log(`Step ${i} duration: ${duration} seconds (hasCode: ${step.hasCode}, textLength: ${cleanText.length}, codeLength: ${codeContent.length})`);
 
     processedSteps.push(processedStep);
   }
