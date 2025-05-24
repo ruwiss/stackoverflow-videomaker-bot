@@ -112,6 +112,9 @@ logs
 data/*.json
 data/*.csv
 
-# Generated images/screenshots
+# Generated images/screenshots (but keep code-images)
 screenshots/
 images/generated/
+
+# Keep code images for the app
+!public/code-images/

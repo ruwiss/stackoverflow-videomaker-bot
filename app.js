@@ -483,7 +483,7 @@ app.post("/generate-video-content", async (req, res) => {
     // Yanıtı parse et
     const videoContent = parseGeminiResponse(text);
 
-    // Kod blokları için carbon-now-cli kullan
+    // Kod bloklarını işle ve carbon-now-cli ile görsel oluştur
     const processedSteps = await processCodeBlocks(videoContent.steps, questionId);
 
     res.json({
@@ -634,26 +634,37 @@ async function processCodeBlocks(steps, questionId) {
           console.log(`Code written to file: ${filePath}`);
           console.log(`Code content: ${code}`);
 
-          // Carbon-now-cli ile görsel oluştur
+          // Carbon-now-cli ile görsel oluştur - basit komut kullan
           const imageName = `code_${questionId}_${i}_${timestamp}`;
-          const carbonCommand = `carbon-now "${filePath}" --save-to "${codeImagesDir}" --save-as "${imageName}" --background-color "transparent" --no-window-controls`;
+
+          // Carbon-now-cli komutunu basitleştir
+          const carbonCommand = `npx carbon-now "${filePath}" --theme "material" --background-color "transparent" --no-window-controls`;
 
           console.log(`Running command: ${carbonCommand}`);
           const result = await execAsync(carbonCommand);
           console.log(`Carbon command result:`, result);
 
-          // Dosyanın oluşup oluşmadığını kontrol et
-          const imagePath = path.join(codeImagesDir, `${imageName}.png`);
-          if (fsSync.existsSync(imagePath)) {
-            console.log(`Image file created successfully: ${imagePath}`);
+          // Ana dizinde oluşan dosyayı bul ve taşı
+          const files = fsSync.readdirSync(__dirname);
+          const generatedFile = files.find((file) => file.startsWith("example-") && file.endsWith(".png"));
+
+          if (generatedFile) {
+            const sourcePath = path.join(__dirname, generatedFile);
+            const targetPath = path.join(codeImagesDir, `${imageName}.png`);
+
+            // Dosyayı taşı
+            fsSync.renameSync(sourcePath, targetPath);
+            console.log(`Image moved from ${sourcePath} to ${targetPath}`);
 
             // Kod bloğunu metinden tamamen çıkar ve görsel referansı ekle
             processedStep.text = step.text.replace(/CODE_BLOCK:\s*\n```[\w]*\n[\s\S]*?\n```/g, "").trim();
-            processedStep.codeImage = `@code-images/${imageName}.png`;
+            processedStep.codeImage = `/code-images/${imageName}.png`;
 
             console.log(`Code image path set: ${processedStep.codeImage}`);
           } else {
-            console.error(`Image file not created: ${imagePath}`);
+            console.error(`Generated image file not found in directory`);
+            // Hata durumunda kod bloğunu temizle
+            processedStep.text = step.text.replace(/CODE_BLOCK:\s*\n```[\w]*\n[\s\S]*?\n```/g, "").trim();
           }
 
           // Temp dosyayı sil

@@ -253,10 +253,9 @@
                   `;
 
                   if (step.codeImage) {
-                    const imagePath = step.codeImage.replace("@code-images/", "/code-images/");
                     stepHtml += `
                         <div class="mt-3">
-                          <img src="${imagePath}" class="code-image" alt="Code Example">
+                          <img src="${step.codeImage}" class="code-image" alt="Code Example" onerror="this.style.display='none'">
                         </div>
                     `;
                   }
