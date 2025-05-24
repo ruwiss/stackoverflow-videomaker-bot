@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><%= question.title %> - Soru Detayı</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/github-dark.min.css" rel="stylesheet" />
+    <style>
+      body { font-size: 15px; }
+      .question-body { background: #f8f9fa; border-radius: 8px; padding: 14px; margin-bottom: 18px; }
+      .answer-card { border-left: 3px solid #28a745; margin-bottom: 12px; box-shadow: none; }
+      .answer-card.accepted { border-left-color: #007bff; }
+      .answer-body { background: #f6f6f6; border-radius: 6px; padding: 10px; font-size: 14px; }
+      .tag-badge { background: #e1ecf4; color: #39739d; margin-right: 3px; font-size: 12px; }
+      .meta { font-size: 0.92em; color: #888; }
+      .back-link { margin-bottom: 12px; display: inline-block; font-size: 14px; }
+      h2 { font-size: 1.25rem; margin-bottom: 10px; }
+      h4 { font-size: 1.1rem; margin-bottom: 8px; }
+      .navbar-brand { font-size: 1.1rem; }
+      .badge { font-size: 12px; padding: 4px 7px; }
+      pre, code { background: #23272e !important; color: #eaeaea !important; border-radius: 4px; padding: 2px 6px; font-size: 13px; }
+      pre { padding: 8px 10px !important; }
+      .question-detail-content { font-size: 15px; }
+    </style>
+  </head>
+  <body>
+    <%
+    // Kod bloklarını işaretleyen fonksiyon
+    function renderWithCodeBlocks(html) {
+      return html
+        .replace(/```([\s\S]*?)```/g, function(_, code) {
+          return '<pre><code>' + code.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</code></pre>';
+        })
+        .replace(/`([^`]+)`/g, function(_, code) {
+          return '<code>' + code.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</code>';
+        });
+    }
+    %>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+      <div class="container">
+        <a class="navbar-brand" href="/"> <i class="fab fa-youtube me-2"></i> Soru Cevap İçeriği </a>
+        <div class="navbar-nav ms-auto">
+          <a class="nav-link" href="<%= question.link %>" target="_blank"> <i class="fab fa-stack-overflow"></i> StackOverflow Linki </a>
+          <a href="/video-generator/<%= question.id %>" class="nav-link">
+            <i class="fas fa-video me-2"></i>Video Oluştur
+          </a>
+        </div>
+      </div>
+    </nav>
+
+    <div class="container py-4">
+      <div class="question-body mb-4">
+        <h2 class="mb-3">
+          <%= question.title %> <% if (question.hasAcceptedAnswer) { %>
+          <span class="badge bg-success ms-2"><i class="fas fa-check"></i> Çözülmüş</span>
+          <% } %>
+        </h2>
+        <div class="meta mb-2">
+          <span><i class="fas fa-user"></i> <%= question.author %></span> | <span><i class="fas fa-calendar"></i> <%= new Date(question.pubDate).toLocaleDateString('tr-TR') %></span> | <span><i class="fas fa-eye"></i> <%= question.viewCount %> görüntülenme</span> |
+          <span><i class="fas fa-thumbs-up"></i> <%= question.score %> puan</span> |
+          <span><i class="fas fa-comments"></i> <%= question.answerCount %> cevap</span>
+        </div>
+        <% if (question.tags && question.tags.length > 0) { %>
+        <div class="mb-2">
+          <% question.tags.forEach(tag => { %>
+          <span class="badge tag-badge"><i class="fas fa-hashtag"></i> <%= tag %></span>
+          <% }); %>
+        </div>
+        <% } %>
+        <% if (question.fullBody) { %>
+          <div class="mb-2 question-detail-content"><strong>Soru Detayı:</strong>
+            <div class="mt-1" style="white-space: pre-line"><%- renderWithCodeBlocks(question.fullBody) %></div>
+          </div>
+        <% } else if (question.description) { %>
+          <div class="mb-2 question-detail-content"><strong>Soru Özeti:</strong>
+            <div class="mt-1 text-muted"><%- renderWithCodeBlocks(question.description) %></div>
+          </div>
+        <% } %>
+      </div>
+
+      <h4 class="mb-3"><i class="fas fa-comments"></i> Cevaplar</h4>
+      <% if (question.answers && question.answers.length > 0) { %>
+      <% question.answers.forEach(answer => { %>
+      <div class="card answer-card <%= answer.isAccepted ? 'accepted' : '' %>">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="fw-bold">
+              <i class="fas fa-user"></i> <%= answer.author %>
+            </span>
+            <% if (answer.isAccepted) { %>
+              <span class="badge bg-primary"><i class="fas fa-check"></i> Kabul Edilen Cevap</span>
+            <% } %>
+            <span class="badge bg-success"><i class="fas fa-thumbs-up"></i> <%= answer.score %></span>
+          </div>
+          <div class="answer-body" style="white-space: pre-line"><%- renderWithCodeBlocks(answer.body) %></div>
+          <div class="meta mt-2">
+            <i class="fas fa-calendar"></i> <%= new Date(answer.creationDate).toLocaleDateString('tr-TR') %>
+          </div>
+        </div>
+      </div>
+      <% }); %>
+      <% } else { %>
+      <div class="alert alert-warning">Bu soruya henüz cevap bulunamadı.</div>
+      <% } %>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+    <script>
+      hljs.highlightAll();
+    </script>
+  </body>
+</html>

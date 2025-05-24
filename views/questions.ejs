@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sorular - StackOverflow RSS Çekici</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .question-card {
+            transition: transform 0.2s;
+            border-left: 4px solid #007bff;
+            margin-bottom: 15px;
+        }
+        .question-card:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .category-badge {
+            font-size: 0.8em;
+        }
+        .filter-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        .answer-preview {
+            max-height: 100px;
+            overflow: hidden;
+            position: relative;
+        }
+        .answer-preview::after {
+            content: "";
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 20px;
+            width: 100%;
+            background: linear-gradient(transparent, white);
+        }
+        .high-score { border-left-color: #28a745 !important; }
+        .medium-score { border-left-color: #ffc107 !important; }
+        .low-score { border-left-color: #dc3545 !important; }
+        .bulk-actions {
+            position: sticky;
+            top: 70px;
+            z-index: 100;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 10px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        @media (min-width: 768px) {
+            #questionsGrid .col-md-6 { flex: 0 0 50%; max-width: 50%; }
+        }
+        @media (max-width: 767px) {
+            #questionsGrid .col-md-6 { flex: 0 0 100%; max-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fab fa-stack-overflow"></i> YouTube Otomasyon
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/export">
+                    <i class="fas fa-download"></i> Export
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-4">
+        <div class="row">
+            <div class="col-12">
+                <h1 class="mb-4">
+                    <i class="fas fa-list"></i> Kayıtlı Sorular
+                    <span class="badge bg-primary"><%= questions.length %></span>
+                    <small class="text-muted">/ <%= totalQuestions %> toplam</small>
+                </h1>
+            </div>
+        </div>
+
+        <!-- Bulk Actions -->
+        <div class="bulk-actions" id="bulkActions">
+            <div class="d-flex justify-content-between align-items-center">
+                <span>
+                    <strong id="selectedCount">0</strong> soru seçildi
+                </span>
+                <div>
+                    <button class="btn btn-sm btn-danger" onclick="bulkDelete()">
+                        <i class="fas fa-trash"></i> Seçilenleri Sil
+                    </button>
+                    <button class="btn btn-sm btn-secondary" onclick="clearSelection()">
+                        <i class="fas fa-times"></i> Seçimi Temizle
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="filter-section">
+            <form method="GET" action="/questions">
+                <div class="row align-items-end">
+                    <div class="col-md-3 mb-2">
+                        <label for="categoryFilter" class="form-label">Kategori:</label>
+                        <select class="form-select" name="category" id="categoryFilter">
+                            <option value="all" <%= selectedCategory === 'all' ? 'selected' : '' %>>Tüm Kategoriler</option>
+                            <% categories.forEach(category => { %>
+                            <option value="<%= category %>" <%= selectedCategory === category ? 'selected' : '' %>>
+                                <%= category.charAt(0).toUpperCase() + category.slice(1) %>
+                            </option>
+                            <% }); %>
+                        </select>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <label for="hasAnswersFilter" class="form-label">Cevap Durumu:</label>
+                        <select class="form-select" name="hasAnswers" id="hasAnswersFilter">
+                            <option value="all" <%= selectedHasAnswers === 'all' ? 'selected' : '' %>>Tümü</option>
+                            <option value="true" <%= selectedHasAnswers === 'true' ? 'selected' : '' %>>Cevaplı</option>
+                            <option value="false" <%= selectedHasAnswers === 'false' ? 'selected' : '' %>>Cevapsız</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <label for="sortFilter" class="form-label">Sıralama:</label>
+                        <select class="form-select" name="sortBy" id="sortFilter">
+                            <option value="fetchedAt" <%= selectedSort === 'fetchedAt' ? 'selected' : '' %>>Son Çekilen</option>
+                            <option value="score" <%= selectedSort === 'score' ? 'selected' : '' %>>En Yüksek Puan</option>
+                            <option value="views" <%= selectedSort === 'views' ? 'selected' : '' %>>En Çok Görüntülenen</option>
+                            <option value="answers" <%= selectedSort === 'answers' ? 'selected' : '' %>>En Çok Cevaplanan</option>
+                            <option value="date" <%= selectedSort === 'date' ? 'selected' : '' %>>En Yeni</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-filter"></i> Filtrele
+                        </button>
+                    </div>
+                </div>
+                <div class="row mt-2">
+                    <div class="col-12">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle"></i>
+                            Toplamda <%= totalQuestions %> soru var, <%= questions.length %> tanesi gösteriliyor
+                        </small>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Bulk Selection -->
+        <div class="row mb-3">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <input type="checkbox" id="selectAll" class="form-check-input">
+                        <label for="selectAll" class="form-check-label ms-2">Tümünü Seç</label>
+                    </div>
+                    <div>
+                        <span class="text-muted">
+                            <i class="fas fa-lightbulb"></i> Renk kodları:
+                            <span class="text-success">Yüksek puan</span> |
+                            <span class="text-warning">Orta puan</span> |
+                            <span class="text-danger">Düşük puan</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Questions List -->
+        <div class="row" id="questionsGrid">
+            <% if (questions.length === 0) { %>
+            <div class="col-12">
+                <div class="text-center py-5">
+                    <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                    <h3 class="text-muted">Bu filtreye uygun soru bulunamadı</h3>
+                    <p class="text-muted">Farklı filtre seçenekleri deneyebilir veya ana sayfadan yeni sorular çekebilirsiniz</p>
+                    <div>
+                        <a href="/questions" class="btn btn-outline-primary me-2">
+                            <i class="fas fa-refresh"></i> Filtreleri Temizle
+                        </a>
+                        <a href="/" class="btn btn-primary">
+                            <i class="fas fa-home"></i> Ana Sayfaya Dön
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <% } else { %>
+            <% questions.forEach((question, index) => {
+                let scoreClass = 'low-score';
+                if (question.score >= 10) scoreClass = 'high-score';
+                else if (question.score >= 3) scoreClass = 'medium-score';
+            %>
+            <div class="col-12 col-md-6 mb-4 d-flex align-items-stretch">
+                <div class="card question-card <%= scoreClass %> w-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div class="d-flex align-items-center">
+                                <input type="checkbox" class="form-check-input question-checkbox me-3"
+                                       value="<%= question.id %>" data-question-id="<%= question.id %>">
+                                <div>
+                                    <span class="badge bg-secondary category-badge text-capitalize me-2">
+                                        <i class="fas fa-tag"></i> <%= question.category %>
+                                    </span>
+                                    <% if (question.hasAcceptedAnswer) { %>
+                                    <span class="badge bg-success me-2">
+                                        <i class="fas fa-check-circle"></i> Çözülmüş
+                                    </span>
+                                    <% } %>
+                                    <% if (question.score >= 10) { %>
+                                    <span class="badge bg-warning">
+                                        <i class="fas fa-star"></i> Popüler
+                                    </span>
+                                    <% } %>
+                                </div>
+                            </div>
+                            <div class="text-end">
+                                <small class="text-muted d-block">
+                                    <i class="fas fa-calendar"></i>
+                                    <%= new Date(question.pubDate).toLocaleDateString('tr-TR') %>
+                                </small>
+                                <button class="btn btn-sm btn-outline-danger mt-1"
+                                        onclick="deleteQuestion('<%= question.id %>')"
+                                        title="Soru sil">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <h5 class="card-title mb-3">
+                            <a href="/question/<%= question.stackoverflowId || question.id %>" class="text-decoration-none">
+                                <%= question.title %>
+                                <i class="fas fa-external-link-alt fa-sm ms-2"></i>
+                            </a>
+                        </h5>
+
+                        <!-- Stats Row -->
+                        <div class="row mb-3">
+                            <div class="col-md-8">
+                                <div class="d-flex flex-wrap gap-3">
+                                    <small class="text-muted">
+                                        <i class="fas fa-thumbs-up text-success"></i>
+                                        <strong><%= question.score || 0 %></strong> puan
+                                    </small>
+                                    <small class="text-muted">
+                                        <i class="fas fa-eye text-info"></i>
+                                        <strong><%= question.viewCount || 0 %></strong> görüntülenme
+                                    </small>
+                                    <small class="text-muted">
+                                        <i class="fas fa-comments text-primary"></i>
+                                        <strong><%= question.answerCount || 0 %></strong> cevap
+                                    </small>
+                                    <% if (question.author && question.author !== 'Unknown') { %>
+                                    <small class="text-muted">
+                                        <i class="fas fa-user"></i>
+                                        <%= question.author %>
+                                    </small>
+                                    <% } %>
+                                </div>
+                            </div>
+                            <div class="col-md-4 text-md-end">
+                                <small class="text-muted">
+                                    <i class="fas fa-download"></i>
+                                    Çekilme: <%= new Date(question.fetchedAt).toLocaleDateString('tr-TR') %>
+                                </small>
+                            </div>
+                        </div>
+
+                        <!-- Question Description -->
+                        <% if (question.description) { %>
+                        <p class="card-text text-muted mb-3">
+                            <%= question.description.substring(0, 300) %>
+                            <% if (question.description.length > 300) { %>...
+                            <a href="/question/<%= question.stackoverflowId || question.id %>" class="text-primary">devamını oku</a>
+                            <% } %>
+                        </p>
+                        <% } %>
+
+                        <!-- Tags -->
+                        <% if (question.tags && question.tags.length > 0) { %>
+                        <div class="mb-3">
+                            <% question.tags.slice(0, 5).forEach(tag => { %>
+                            <span class="badge bg-light text-dark me-1">
+                                <i class="fas fa-hashtag"></i><%= tag %>
+                            </span>
+                            <% }); %>
+                            <% if (question.tags.length > 5) { %>
+                            <span class="text-muted">+<%= question.tags.length - 5 %> daha</span>
+                            <% } %>
+                        </div>
+                        <% } %>
+
+                        <!-- Answer Preview -->
+                        <% if (question.answers && question.answers.length > 0) {
+                            const accepted = question.answers.find(a => a.isAccepted);
+                            if (accepted) { %>
+                        <div class="border-top pt-3">
+                            <h6 class="text-success mb-2">
+                                <i class="fas fa-check-circle"></i> En İyi Cevap <span class="badge bg-success">Kabul Edildi</span>
+                                <span class="badge bg-outline-secondary">+<%= accepted.score %></span>
+                            </h6>
+                            <div class="answer-preview">
+                                <small class="text-muted">
+                                    <%= accepted.body ? accepted.body.substring(0, 200) : 'Cevap içeriği mevcut değil' %>
+                                    <% if (accepted.body && accepted.body.length > 200) { %>...
+                                    <% } %>
+                                </small>
+                            </div>
+                        </div>
+                        <% } } %>
+
+                        <div class="d-flex justify-content-between align-items-center mt-3">
+                            <div>
+                                <a href="/question/<%= question.stackoverflowId || question.id %>"
+                                   class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-eye"></i> Detayları Görüntüle
+                                </a>
+                                <a href="<%= question.link %>" target="_blank"
+                                   class="btn btn-sm btn-outline-secondary ms-2">
+                                    <i class="fab fa-stack-overflow"></i> StackOverflow'da Aç
+                                </a>
+                            </div>
+                            <% if (question.hasAcceptedAnswer) { %>
+                            <span class="badge bg-success">
+                                <i class="fas fa-video"></i> Video Hazır
+                            </span>
+                            <% } %>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <% }); %>
+            <% } %>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Checkbox handling
+        const selectAllCheckbox = document.getElementById('selectAll');
+        const questionCheckboxes = document.querySelectorAll('.question-checkbox');
+        const bulkActions = document.getElementById('bulkActions');
+        const selectedCount = document.getElementById('selectedCount');
+
+        selectAllCheckbox.addEventListener('change', function() {
+            questionCheckboxes.forEach(checkbox => {
+                checkbox.checked = this.checked;
+            });
+            updateBulkActions();
+        });
+
+        questionCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', updateBulkActions);
+        });
+
+        function updateBulkActions() {
+            const checkedBoxes = document.querySelectorAll('.question-checkbox:checked');
+            const count = checkedBoxes.length;
+
+            selectedCount.textContent = count;
+
+            if (count > 0) {
+                bulkActions.style.display = 'block';
+            } else {
+                bulkActions.style.display = 'none';
+            }
+
+            // Update select all checkbox state
+            selectAllCheckbox.checked = count === questionCheckboxes.length;
+            selectAllCheckbox.indeterminate = count > 0 && count < questionCheckboxes.length;
+        }
+
+        function clearSelection() {
+            questionCheckboxes.forEach(checkbox => {
+                checkbox.checked = false;
+            });
+            selectAllCheckbox.checked = false;
+            updateBulkActions();
+        }
+
+        async function bulkDelete() {
+            const checkedBoxes = document.querySelectorAll('.question-checkbox:checked');
+            const ids = Array.from(checkedBoxes).map(cb => cb.value);
+
+            if (ids.length === 0) {
+                alert('Hiç soru seçilmedi!');
+                return;
+            }
+
+            if (!confirm(`${ids.length} soruyu silmek istediğinizden emin misiniz?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/questions/bulk-delete', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ ids })
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    alert(`✅ ${result.deletedCount} soru başarıyla silindi!`);
+                    location.reload();
+                } else {
+                    alert('❌ Silme işlemi başarısız');
+                }
+            } catch (error) {
+                alert('❌ Hata: ' + error.message);
+            }
+        }
+
+        async function deleteQuestion(questionId) {
+            if (!confirm('Bu soruyu silmek istediğinizden emin misiniz?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/questions/${questionId}`, {
+                    method: 'DELETE'
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    location.reload();
+                } else {
+                    alert('❌ Silme işlemi başarısız');
+                }
+            } catch (error) {
+                alert('❌ Hata: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>
