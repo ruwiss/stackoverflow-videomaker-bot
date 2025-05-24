@@ -182,6 +182,64 @@ function cleanHtml(html) {
     .trim();
 }
 
+// Kod formatını düzelten gelişmiş fonksiyon
+function formatCode(code) {
+  if (!code) return "";
+
+  // Satırları ayır
+  let lines = code.split("\n");
+
+  // Boş satırları temizle (başta ve sonda)
+  while (lines.length > 0 && lines[0].trim() === "") {
+    lines.shift();
+  }
+  while (lines.length > 0 && lines[lines.length - 1].trim() === "") {
+    lines.pop();
+  }
+
+  if (lines.length === 0) return "";
+
+  // JavaScript kod formatı için akıllı indentasyon
+  const formattedLines = [];
+  let indentLevel = 0;
+  const indentSize = 2; // 2 boşluk kullan
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+
+    if (line === "") {
+      formattedLines.push("");
+      continue;
+    }
+
+    // Kapanış parantezleri için indent seviyesini azalt
+    if (line.startsWith("}") || line.startsWith("]") || line.startsWith(")") || line.includes("} else {") || line.includes("} catch") || line.includes("} finally")) {
+      indentLevel = Math.max(0, indentLevel - 1);
+    }
+
+    // Satırı indent ile ekle
+    const indentedLine = " ".repeat(indentLevel * indentSize) + line;
+    formattedLines.push(indentedLine);
+
+    // Açılış parantezleri için indent seviyesini artır
+    if (line.includes("{") && !line.includes("}")) {
+      indentLevel++;
+    }
+
+    // Özel durumlar
+    if (line.includes("} else {") || line.includes("} catch") || line.includes("} finally")) {
+      indentLevel++;
+    }
+
+    // Array ve object açılışları
+    if ((line.includes("[") && !line.includes("]")) || (line.includes("(") && !line.includes(")") && line.includes("function"))) {
+      // Bu durumlar için indent artırma zaten yukarıda yapılıyor
+    }
+  }
+
+  return formattedLines.join("\n");
+}
+
 // fetchRSSData fonksiyonu: son çekilen id'yi kategori+mod'a göre oku/kaydet
 async function fetchRSSData(category, limit = 5, sortBy = "votes") {
   try {
@@ -473,6 +531,8 @@ app.post("/generate-video-content", async (req, res) => {
             return "result";
           }
         };
+        \`
+
         \`\`\`
         `;
 
@@ -617,7 +677,13 @@ async function processCodeBlocks(steps, questionId) {
         console.log(`Code match result:`, codeMatch);
 
         if (codeMatch) {
-          const code = codeMatch[1].trim();
+          let code = codeMatch[1];
+
+          // Kodu formatla
+          code = formatCode(code);
+
+          console.log(`Formatted code: ${code}`);
+
           const timestamp = Date.now();
           const fileName = `example.js`;
           const filePath = path.join(__dirname, "temp", fileName);
@@ -632,7 +698,6 @@ async function processCodeBlocks(steps, questionId) {
           // Kodu dosyaya yaz
           fsSync.writeFileSync(filePath, code);
           console.log(`Code written to file: ${filePath}`);
-          console.log(`Code content: ${code}`);
 
           // Carbon-now-cli ile görsel oluştur - basit komut kullan
           const imageName = `code_${questionId}_${i}_${timestamp}`;
