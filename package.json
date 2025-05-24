@@ -8,13 +8,14 @@
         "dev": "nodemon app.js"
     },
     "dependencies": {
-        "express": "^4.18.2",
-        "ejs": "^3.1.9",
-        "rss-parser": "^3.13.0",
-        "axios": "^1.6.2",
-        "he": "^1.2.0",
         "@google/generative-ai": "^0.2.1",
-        "carbon-now-cli": "^1.4.0"
+        "axios": "^1.9.0",
+        "canvas": "^3.1.0",
+        "carbon-now-cli": "^1.4.0",
+        "ejs": "^3.1.9",
+        "express": "^4.18.2",
+        "he": "^1.2.0",
+        "rss-parser": "^3.13.0"
     },
     "devDependencies": {
         "nodemon": "^3.0.2"

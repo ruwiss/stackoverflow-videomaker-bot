@@ -8,6 +8,7 @@ const he = require("he");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { exec } = require("child_process");
 const { promisify } = require("util");
+const { createCanvas, loadImage, registerFont } = require("canvas");
 
 const app = express();
 const parser = new RSSParser();
@@ -28,6 +29,262 @@ const LAST_FETCH_FILE = path.join(__dirname, "data", "last_fetched.json");
 
 // StackOverflow API base URL
 const SO_API_BASE = "https://api.stackexchange.com/2.3";
+
+// Programlama dili renkleri, logoları ve tasarım varyasyonları
+const LANGUAGE_THEMES = {
+  javascript: {
+    color: "#F7DF1E",
+    bgColor: "#1E1E1E",
+    textColor: "#FFFFFF",
+    icon: "⚡",
+    logoUrl: "https://raw.githubusercontent.com/devicons/devicon/master/icons/javascript/javascript-original.svg",
+  },
+  typescript: {
+    color: "#3178C6",
+    bgColor: "#FFFFFF",
+    textColor: "#3178C6",
+    icon: "📘",
+    logoUrl: "https://raw.githubusercontent.com/devicons/devicon/master/icons/typescript/typescript-original.svg",
+  },
+  python: {
+    color: "#3776AB",
+    bgColor: "#FFD43B",
+    textColor: "#3776AB",
+    icon: "🐍",
+    logoUrl: "https://raw.githubusercontent.com/devicons/devicon/master/icons/python/python-original.svg",
+  },
+  java: {
+    color: "#ED8B00",
+    bgColor: "#FFFFFF",
+    textColor: "#ED8B00",
+    icon: "☕",
+    logoUrl: "https://raw.githubusercontent.com/devicons/devicon/master/icons/java/java-original.svg",
+  },
+  "c#": {
+    color: "#239120",
+    bgColor: "#FFFFFF",
+    textColor: "#239120",
+    icon: "#️⃣",
+    logoUrl: "https://raw.githubusercontent.com/devicons/devicon/master/icons/csharp/csharp-original.svg",
+  },
+  "c++": {
+    color: "#00599C",
+    bgColor: "#FFFFFF",
+    textColor: "#00599C",
+    icon: "⚙️",
+    logoUrl: "https://raw.githubusercontent.com/devicons/devicon/master/icons/cplusplus/cplusplus-original.svg",
+  },
+  php: {
+    color: "#777BB4",
+    bgColor: "#FFFFFF",
+    textColor: "#777BB4",
+    icon: "🐘",
+    logoUrl: "https://raw.githubusercontent.com/devicons/devicon/master/icons/php/php-original.svg",
+  },
+  go: {
+    color: "#00ADD8",
+    bgColor: "#FFFFFF",
+    textColor: "#00ADD8",
+    icon: "🐹",
+    logoUrl: "https://raw.githubusercontent.com/devicons/devicon/master/icons/go/go-original.svg",
+  },
+  rust: {
+    color: "#CE422B",
+    bgColor: "#FFFFFF",
+    textColor: "#CE422B",
+    icon: "🦀",
+    logoUrl: "https://raw.githubusercontent.com/devicons/devicon/master/icons/rust/rust-plain.svg",
+  },
+  kotlin: {
+    color: "#7F52FF",
+    bgColor: "#FFFFFF",
+    textColor: "#7F52FF",
+    icon: "🎯",
+    logoUrl: "https://raw.githubusercontent.com/devicons/devicon/master/icons/kotlin/kotlin-original.svg",
+  },
+  swift: {
+    color: "#FA7343",
+    bgColor: "#FFFFFF",
+    textColor: "#FA7343",
+    icon: "🍎",
+    logoUrl: "https://raw.githubusercontent.com/devicons/devicon/master/icons/swift/swift-original.svg",
+  },
+  react: {
+    color: "#61DAFB",
+    bgColor: "#20232A",
+    textColor: "#61DAFB",
+    icon: "⚛️",
+    logoUrl: "https://raw.githubusercontent.com/devicons/devicon/master/icons/react/react-original.svg",
+  },
+  vue: {
+    color: "#4FC08D",
+    bgColor: "#FFFFFF",
+    textColor: "#4FC08D",
+    icon: "💚",
+    logoUrl: "https://raw.githubusercontent.com/devicons/devicon/master/icons/vuejs/vuejs-original.svg",
+  },
+  angular: {
+    color: "#DD0031",
+    bgColor: "#FFFFFF",
+    textColor: "#DD0031",
+    icon: "🅰️",
+    logoUrl: "https://raw.githubusercontent.com/devicons/devicon/master/icons/angularjs/angularjs-original.svg",
+  },
+  nodejs: {
+    color: "#339933",
+    bgColor: "#FFFFFF",
+    textColor: "#339933",
+    icon: "🟢",
+    logoUrl: "https://raw.githubusercontent.com/devicons/devicon/master/icons/nodejs/nodejs-original.svg",
+  },
+  flutter: {
+    color: "#02569B",
+    bgColor: "#FFFFFF",
+    textColor: "#02569B",
+    icon: "🦋",
+    logoUrl: "https://raw.githubusercontent.com/devicons/devicon/master/icons/flutter/flutter-original.svg",
+  },
+  "react-native": {
+    color: "#61DAFB",
+    bgColor: "#20232A",
+    textColor: "#61DAFB",
+    icon: "📱",
+    logoUrl: "https://raw.githubusercontent.com/devicons/devicon/master/icons/react/react-original.svg",
+  },
+  android: {
+    color: "#3DDC84",
+    bgColor: "#FFFFFF",
+    textColor: "#3DDC84",
+    icon: "🤖",
+    logoUrl: "https://raw.githubusercontent.com/devicons/devicon/master/icons/android/android-original.svg",
+  },
+  html: {
+    color: "#E34F26",
+    bgColor: "#FFFFFF",
+    textColor: "#E34F26",
+    icon: "🌐",
+    logoUrl: "https://raw.githubusercontent.com/devicons/devicon/master/icons/html5/html5-original.svg",
+  },
+  css: {
+    color: "#1572B6",
+    bgColor: "#FFFFFF",
+    textColor: "#1572B6",
+    icon: "🎨",
+    logoUrl: "https://raw.githubusercontent.com/devicons/devicon/master/icons/css3/css3-original.svg",
+  },
+  bootstrap: {
+    color: "#7952B3",
+    bgColor: "#FFFFFF",
+    textColor: "#7952B3",
+    icon: "🅱️",
+    logoUrl: "https://raw.githubusercontent.com/devicons/devicon/master/icons/bootstrap/bootstrap-original.svg",
+  },
+  mongodb: {
+    color: "#47A248",
+    bgColor: "#FFFFFF",
+    textColor: "#47A248",
+    icon: "🍃",
+    logoUrl: "https://raw.githubusercontent.com/devicons/devicon/master/icons/mongodb/mongodb-original.svg",
+  },
+  mysql: {
+    color: "#4479A1",
+    bgColor: "#FFFFFF",
+    textColor: "#4479A1",
+    icon: "🐬",
+    logoUrl: "https://raw.githubusercontent.com/devicons/devicon/master/icons/mysql/mysql-original.svg",
+  },
+  docker: {
+    color: "#2496ED",
+    bgColor: "#FFFFFF",
+    textColor: "#2496ED",
+    icon: "🐳",
+    logoUrl: "https://raw.githubusercontent.com/devicons/devicon/master/icons/docker/docker-original.svg",
+  },
+  git: {
+    color: "#F05032",
+    bgColor: "#FFFFFF",
+    textColor: "#F05032",
+    icon: "📝",
+    logoUrl: "https://raw.githubusercontent.com/devicons/devicon/master/icons/git/git-original.svg",
+  },
+  linux: { color: "#FCC624", bgColor: "#000000", textColor: "#FCC624", icon: "🐧" },
+  bash: { color: "#4EAA25", bgColor: "#000000", textColor: "#4EAA25", icon: "💻" },
+  powershell: { color: "#5391FE", bgColor: "#FFFFFF", textColor: "#5391FE", icon: "💻" },
+  "machine-learning": { color: "#FF6F00", bgColor: "#FFFFFF", textColor: "#FF6F00", icon: "🤖" },
+  tensorflow: { color: "#FF6F00", bgColor: "#FFFFFF", textColor: "#FF6F00", icon: "🧠" },
+  pytorch: { color: "#EE4C2C", bgColor: "#FFFFFF", textColor: "#EE4C2C", icon: "🔥" },
+  pandas: { color: "#150458", bgColor: "#FFFFFF", textColor: "#150458", icon: "🐼" },
+  numpy: { color: "#013243", bgColor: "#FFFFFF", textColor: "#013243", icon: "🔢" },
+  django: { color: "#092E20", bgColor: "#FFFFFF", textColor: "#092E20", icon: "🎸" },
+  flask: { color: "#000000", bgColor: "#FFFFFF", textColor: "#000000", icon: "🌶️" },
+  laravel: { color: "#FF2D20", bgColor: "#FFFFFF", textColor: "#FF2D20", icon: "🎭" },
+  "spring-boot": { color: "#6DB33F", bgColor: "#FFFFFF", textColor: "#6DB33F", icon: "🍃" },
+  ".net": { color: "#512BD4", bgColor: "#FFFFFF", textColor: "#512BD4", icon: "🔷" },
+  unity: { color: "#000000", bgColor: "#FFFFFF", textColor: "#000000", icon: "🎮" },
+  firebase: { color: "#FFCA28", bgColor: "#FFFFFF", textColor: "#FFCA28", icon: "🔥" },
+  graphql: { color: "#E10098", bgColor: "#FFFFFF", textColor: "#E10098", icon: "📊" },
+  webpack: { color: "#8DD6F9", bgColor: "#FFFFFF", textColor: "#8DD6F9", icon: "📦" },
+  nextjs: { color: "#000000", bgColor: "#FFFFFF", textColor: "#000000", icon: "▲" },
+  nuxtjs: { color: "#00DC82", bgColor: "#FFFFFF", textColor: "#00DC82", icon: "💚" },
+  express: { color: "#000000", bgColor: "#FFFFFF", textColor: "#000000", icon: "🚂" },
+  elasticsearch: { color: "#005571", bgColor: "#FFFFFF", textColor: "#005571", icon: "🔍" },
+  rabbitmq: { color: "#FF6600", bgColor: "#FFFFFF", textColor: "#FF6600", icon: "🐰" },
+  nginx: { color: "#009639", bgColor: "#FFFFFF", textColor: "#009639", icon: "🌐" },
+  apache: { color: "#D22128", bgColor: "#FFFFFF", textColor: "#D22128", icon: "🪶" },
+  selenium: { color: "#43B02A", bgColor: "#FFFFFF", textColor: "#43B02A", icon: "🤖" },
+  jest: { color: "#C21325", bgColor: "#FFFFFF", textColor: "#C21325", icon: "🃏" },
+  cypress: { color: "#17202C", bgColor: "#FFFFFF", textColor: "#17202C", icon: "🌲" },
+  regex: { color: "#FF6B35", bgColor: "#FFFFFF", textColor: "#FF6B35", icon: "🔤" },
+  json: { color: "#000000", bgColor: "#FFFFFF", textColor: "#000000", icon: "📄" },
+  xml: { color: "#FF6600", bgColor: "#FFFFFF", textColor: "#FF6600", icon: "📋" },
+  api: { color: "#FF6B35", bgColor: "#FFFFFF", textColor: "#FF6B35", icon: "🔌" },
+  rest: { color: "#02569B", bgColor: "#FFFFFF", textColor: "#02569B", icon: "🌐" },
+  websocket: { color: "#010101", bgColor: "#FFFFFF", textColor: "#010101", icon: "🔌" },
+  oauth: { color: "#EB5424", bgColor: "#FFFFFF", textColor: "#EB5424", icon: "🔐" },
+  jwt: { color: "#000000", bgColor: "#FFFFFF", textColor: "#000000", icon: "🎫" },
+  blockchain: { color: "#F7931A", bgColor: "#FFFFFF", textColor: "#F7931A", icon: "⛓️" },
+  solidity: { color: "#363636", bgColor: "#FFFFFF", textColor: "#363636", icon: "💎" },
+  electron: { color: "#47848F", bgColor: "#FFFFFF", textColor: "#47848F", icon: "⚛️" },
+  cordova: { color: "#E8E8E8", bgColor: "#000000", textColor: "#E8E8E8", icon: "📱" },
+  xamarin: { color: "#3498DB", bgColor: "#FFFFFF", textColor: "#3498DB", icon: "📱" },
+  ios: { color: "#000000", bgColor: "#FFFFFF", textColor: "#000000", icon: "📱" },
+  default: {
+    color: "#6366F1",
+    bgColor: "#FFFFFF",
+    textColor: "#6366F1",
+    icon: "💻",
+    logoUrl: null,
+  },
+};
+
+// Tasarım varyasyonları
+const DESIGN_VARIANTS = ["modern", "gradient", "minimal", "geometric", "neon"];
+
+// Renk paletleri ve tasarım varyasyonları
+const COLOR_PALETTES = [
+  // Sunset
+  { primary: "#FF6B6B", secondary: "#4ECDC4", accent: "#45B7D1", bg1: "#96CEB4", bg2: "#FFEAA7" },
+  // Ocean
+  { primary: "#0984e3", secondary: "#74b9ff", accent: "#00b894", bg1: "#00cec9", bg2: "#6c5ce7" },
+  // Forest
+  { primary: "#00b894", secondary: "#55a3ff", accent: "#fdcb6e", bg1: "#6c5ce7", bg2: "#fd79a8" },
+  // Purple
+  { primary: "#a29bfe", secondary: "#fd79a8", accent: "#fdcb6e", bg1: "#e17055", bg2: "#74b9ff" },
+  // Fire
+  { primary: "#e17055", secondary: "#fdcb6e", accent: "#fd79a8", bg1: "#ff7675", bg2: "#74b9ff" },
+  // Neon
+  { primary: "#00ff88", secondary: "#00d4ff", accent: "#ff0080", bg1: "#8000ff", bg2: "#ffff00" },
+  // Retro
+  { primary: "#ff6b9d", secondary: "#c44569", accent: "#f8b500", bg1: "#3742fa", bg2: "#2ed573" },
+  // Corporate
+  { primary: "#2c3e50", secondary: "#3498db", accent: "#e74c3c", bg1: "#95a5a6", bg2: "#f39c12" },
+];
+
+// Tasarım layoutları
+const LAYOUT_VARIANTS = ["left-aligned", "centered", "diagonal", "corner", "split"];
+
+// Şekil varyasyonları
+const SHAPE_VARIANTS = ["circles", "triangles", "hexagons", "waves", "geometric", "organic"];
 
 // Ensure data directory exists
 async function ensureDataDir() {
@@ -82,7 +339,6 @@ const RSS_FEEDS = {
   bootstrap: "https://stackoverflow.com/feeds/tag?tagnames=bootstrap&sort=newest",
   jquery: "https://stackoverflow.com/feeds/tag?tagnames=jquery&sort=newest",
   express: "https://stackoverflow.com/feeds/tag?tagnames=express&sort=newest",
-  mongodb: "https://stackoverflow.com/feeds/tag?tagnames=mongodb&sort=newest",
   mysql: "https://stackoverflow.com/feeds/tag?tagnames=mysql&sort=newest",
   postgresql: "https://stackoverflow.com/feeds/tag?tagnames=postgresql&sort=newest",
   redis: "https://stackoverflow.com/feeds/tag?tagnames=redis&sort=newest",
@@ -132,6 +388,7 @@ const RSS_FEEDS = {
   electron: "https://stackoverflow.com/feeds/tag?tagnames=electron&sort=newest",
   cordova: "https://stackoverflow.com/feeds/tag?tagnames=cordova&sort=newest",
   xamarin: "https://stackoverflow.com/feeds/tag?tagnames=xamarin&sort=newest",
+  mongodb: "https://stackoverflow.com/feeds/tag?tagnames=mongodb&sort=newest",
 };
 
 // Extract question ID from StackOverflow URL
@@ -883,17 +1140,22 @@ app.get("/generate-video-content-stream/:questionId", async (req, res) => {
     // Adım 5: Kod resimleri oluşturma
     const processedSteps = await processCodeBlocksWithProgress(videoContent.steps, questionId, sendProgress);
 
+    // Adım 6: Thumbnail oluşturma
+    sendProgress(5, 95, "Thumbnail oluşturuluyor...");
+    const thumbnailPath = await createThumbnail(videoContent.title, question.category, questionId);
+
     // Toplam süreyi hesapla
     const totalDuration = processedSteps.reduce((total, step) => total + (step.duration || 0), 0);
 
     // Tamamlandı
-    sendProgress(5, 100, "Tamamlandı!", {
+    sendProgress(6, 100, "Tamamlandı!", {
       success: true,
       data: {
         title: videoContent.title,
         description: videoContent.description,
         keywords: videoContent.keywords,
         steps: processedSteps,
+        thumbnail: thumbnailPath,
         estimatedDuration: totalDuration,
         estimatedDurationFormatted: `${Math.floor(totalDuration / 60)}:${(totalDuration % 60).toString().padStart(2, "0")}`,
       },
@@ -1134,8 +1396,665 @@ async function processCodeBlocksWithProgress(steps, questionId, sendProgress) {
 
 // Static dosyalar için route
 app.use("/code-images", express.static(path.join(__dirname, "public", "code-images")));
+app.use("/thumbnails", express.static(path.join(__dirname, "public", "thumbnails")));
+
+// Thumbnail oluşturma fonksiyonu
+async function createThumbnail(title, category, questionId, variant = null) {
+  try {
+    const width = 1280;
+    const height = 720;
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext("2d");
+
+    // Tema seç
+    const theme = LANGUAGE_THEMES[category] || LANGUAGE_THEMES.default;
+
+    // Random seçimler
+    const selectedVariant = variant || DESIGN_VARIANTS[Math.floor(Math.random() * DESIGN_VARIANTS.length)];
+    const colorPalette = COLOR_PALETTES[Math.floor(Math.random() * COLOR_PALETTES.length)];
+    const layout = LAYOUT_VARIANTS[Math.floor(Math.random() * LAYOUT_VARIANTS.length)];
+    const shapeVariant = SHAPE_VARIANTS[Math.floor(Math.random() * SHAPE_VARIANTS.length)];
+
+    // Variant'a göre tasarım uygula
+    switch (selectedVariant) {
+      case "modern":
+        await createModernDesign(ctx, width, height, theme, title, category, colorPalette, layout, shapeVariant);
+        break;
+      case "gradient":
+        await createGradientDesign(ctx, width, height, theme, title, category, colorPalette, layout, shapeVariant);
+        break;
+      case "minimal":
+        await createMinimalDesign(ctx, width, height, theme, title, category, colorPalette, layout, shapeVariant);
+        break;
+      case "geometric":
+        await createGeometricDesign(ctx, width, height, theme, title, category, colorPalette, layout, shapeVariant);
+        break;
+      case "neon":
+        await createNeonDesign(ctx, width, height, theme, title, category, colorPalette, layout, shapeVariant);
+        break;
+      default:
+        await createModernDesign(ctx, width, height, theme, title, category, colorPalette, layout, shapeVariant);
+    }
+
+    // Icon ekle - Logo yükleme tamamen devre dışı bırakıldı (Canvas sorunları nedeniyle)
+    addIconToCanvas(ctx, theme.icon, width, height, colorPalette.primary, selectedVariant, layout);
+
+    // Dosyayı kaydet
+    const thumbnailsDir = path.join(__dirname, "public", "thumbnails");
+    if (!fsSync.existsSync(thumbnailsDir)) {
+      fsSync.mkdirSync(thumbnailsDir, { recursive: true });
+    }
+
+    const fileName = `thumbnail_${questionId}_${selectedVariant}_${Date.now()}.png`;
+    const filePath = path.join(thumbnailsDir, fileName);
+
+    const buffer = canvas.toBuffer("image/png");
+    fsSync.writeFileSync(filePath, buffer);
+
+    return `/thumbnails/${fileName}`;
+  } catch (error) {
+    console.error("Thumbnail oluşturma hatası:", error);
+    return null;
+  }
+}
+
+// Modern tasarım
+async function createModernDesign(ctx, width, height, theme, title, category, colorPalette, layout, shapeVariant) {
+  // Dinamik gradient arkaplan
+  const gradient = ctx.createLinearGradient(0, 0, width, height);
+  gradient.addColorStop(0, colorPalette.primary + "40");
+  gradient.addColorStop(0.5, colorPalette.secondary + "30");
+  gradient.addColorStop(1, colorPalette.accent + "20");
+
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, width, height);
+
+  // Şekil varyasyonlarına göre dekoratif elementler
+  drawShapes(ctx, width, height, colorPalette, shapeVariant);
+
+  addTitleAndBadge(ctx, title, category, theme, width, height, null, layout, colorPalette);
+}
+
+// Gradient tasarım
+async function createGradientDesign(ctx, width, height, theme, title, category, colorPalette, layout, shapeVariant) {
+  // Çok renkli gradient arkaplan
+  const gradient = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, Math.max(width, height) / 2);
+  gradient.addColorStop(0, colorPalette.bg1 + "60");
+  gradient.addColorStop(0.3, colorPalette.primary + "40");
+  gradient.addColorStop(0.7, colorPalette.secondary + "30");
+  gradient.addColorStop(1, colorPalette.bg2 + "20");
+
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, width, height);
+
+  // Dalga efekti - random parametreler
+  const waveHeight = 30 + Math.random() * 40;
+  const waveFreq = 0.005 + Math.random() * 0.01;
+
+  ctx.fillStyle = colorPalette.accent + "40";
+  ctx.beginPath();
+  for (let x = 0; x <= width; x += 5) {
+    const y = height - 100 + Math.sin(x * waveFreq) * waveHeight;
+    if (x === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.lineTo(width, height);
+  ctx.lineTo(0, height);
+  ctx.fill();
+
+  addTitleAndBadge(ctx, title, category, theme, width, height, null, layout, colorPalette);
+}
+
+// Minimal tasarım
+async function createMinimalDesign(ctx, width, height, theme, title, category, colorPalette, layout, shapeVariant) {
+  // Temiz arkaplan - random açık renkler
+  const bgColors = ["#FFFFFF", "#F8F9FA", "#F1F3F4", colorPalette.bg1 + "10"];
+  ctx.fillStyle = bgColors[Math.floor(Math.random() * bgColors.length)];
+  ctx.fillRect(0, 0, width, height);
+
+  // Random border style
+  const borderStyles = ["solid", "dashed", "dotted"];
+  const borderStyle = borderStyles[Math.floor(Math.random() * borderStyles.length)];
+
+  ctx.strokeStyle = colorPalette.primary + "50";
+  ctx.lineWidth = 6;
+
+  if (borderStyle === "dashed") {
+    ctx.setLineDash([20, 10]);
+  } else if (borderStyle === "dotted") {
+    ctx.setLineDash([5, 15]);
+  }
+
+  ctx.strokeRect(40, 40, width - 80, height - 80);
+  ctx.setLineDash([]); // Reset
+
+  // Random köşe aksentleri
+  const accentSize = 80 + Math.random() * 40;
+  ctx.fillStyle = colorPalette.accent;
+
+  // Sol üst
+  ctx.fillRect(40, 40, accentSize, 8);
+  ctx.fillRect(40, 40, 8, accentSize);
+
+  // Sağ alt
+  ctx.fillRect(width - 40 - accentSize, height - 48, accentSize, 8);
+  ctx.fillRect(width - 48, height - 40 - accentSize, 8, accentSize);
+
+  addTitleAndBadge(ctx, title, category, theme, width, height, null, layout, colorPalette);
+}
+
+// Geometric tasarım
+async function createGeometricDesign(ctx, width, height, theme, title, category, colorPalette, layout, shapeVariant) {
+  // Koyu arkaplan
+  ctx.fillStyle = "#1A1A1A";
+  ctx.fillRect(0, 0, width, height);
+
+  // Random geometric şekiller
+  drawRandomGeometricShapes(ctx, width, height, colorPalette);
+
+  addTitleAndBadge(ctx, title, category, theme, width, height, null, layout, colorPalette);
+}
+
+// Neon tasarım
+async function createNeonDesign(ctx, width, height, theme, title, category, colorPalette, layout, shapeVariant) {
+  // Siyah arkaplan
+  ctx.fillStyle = "#000000";
+  ctx.fillRect(0, 0, width, height);
+
+  // Random neon grid
+  const gridSize = 30 + Math.random() * 40;
+  ctx.strokeStyle = colorPalette.primary + "60";
+  ctx.lineWidth = 1;
+
+  // Vertical lines
+  for (let x = 0; x < width; x += gridSize) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, height);
+    ctx.stroke();
+  }
+
+  // Horizontal lines
+  for (let y = 0; y < height; y += gridSize) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(width, y);
+    ctx.stroke();
+  }
+
+  // Neon glow effect - random renk
+  const glowColors = [colorPalette.primary, colorPalette.secondary, colorPalette.accent];
+  const glowColor = glowColors[Math.floor(Math.random() * glowColors.length)];
+
+  ctx.shadowColor = glowColor;
+  ctx.shadowBlur = 20;
+  ctx.strokeStyle = glowColor;
+  ctx.lineWidth = 3;
+  ctx.strokeRect(60, 60, width - 120, height - 120);
+  ctx.shadowBlur = 0;
+
+  addTitleAndBadge(ctx, title, category, theme, width, height, null, layout, colorPalette);
+}
+
+// Başlık ve badge ekleme fonksiyonu
+function addTitleAndBadge(ctx, title, category, theme, width, height, defaultTextColor, layout, colorPalette) {
+  // Başlığı temizle
+  let cleanTitle = title
+    .replace(/\[.*?\]/g, "")
+    .replace(/\(.*?\)/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  // Layout'a göre pozisyon hesapla
+  let titleX, titleY, badgeX, badgeY;
+
+  switch (layout) {
+    case "centered":
+      titleX = width / 2;
+      titleY = height / 2 - 50;
+      badgeX = width / 2;
+      badgeY = height / 2 + 100;
+      break;
+    case "diagonal":
+      titleX = 100;
+      titleY = 150;
+      badgeX = width - 200;
+      badgeY = height - 100;
+      break;
+    case "corner":
+      titleX = width - 600;
+      titleY = height - 200;
+      badgeX = width - 200;
+      badgeY = 60;
+      break;
+    case "split":
+      titleX = 60;
+      titleY = height / 2 - 50;
+      badgeX = width - 200;
+      badgeY = height / 2 + 50;
+      break;
+    default: // left-aligned
+      titleX = 60;
+      titleY = 80;
+      badgeX = 60;
+      badgeY = height - 100;
+  }
+
+  // Arkaplan rengine göre metin rengini belirle
+  const textColor = getTextColorForBackground(colorPalette.primary);
+
+  // Başlık
+  ctx.fillStyle = textColor;
+  ctx.font = "bold 64px Arial, sans-serif";
+  ctx.textAlign = layout === "centered" ? "center" : "left";
+  ctx.textBaseline = "top";
+
+  const maxWidth = layout === "centered" ? width - 200 : width - titleX - 120;
+  const words = cleanTitle.split(" ");
+  let lines = [];
+  let currentLine = "";
+
+  for (const word of words) {
+    const testLine = currentLine + (currentLine ? " " : "") + word;
+    const metrics = ctx.measureText(testLine);
+
+    if (metrics.width > maxWidth && currentLine) {
+      lines.push(currentLine);
+      currentLine = word;
+    } else {
+      currentLine = testLine;
+    }
+  }
+  if (currentLine) lines.push(currentLine);
+
+  if (lines.length > 3) {
+    lines = lines.slice(0, 2);
+    lines.push("...");
+  }
+
+  const lineHeight = 75;
+
+  lines.forEach((line, index) => {
+    ctx.fillText(line, titleX, titleY + index * lineHeight);
+  });
+
+  // Badge
+  const badgeHeight = 50;
+  const badgeText = category.toUpperCase();
+
+  ctx.font = "bold 20px Arial, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  const textMetrics = ctx.measureText(badgeText);
+  const badgeWidth = textMetrics.width + 40;
+
+  // Layout'a göre badge pozisyonu ayarla
+  if (layout === "centered") {
+    badgeX = badgeX - badgeWidth / 2;
+  }
+
+  const badgeGradient = ctx.createLinearGradient(badgeX, badgeY, badgeX + badgeWidth, badgeY + badgeHeight);
+  badgeGradient.addColorStop(0, colorPalette.primary);
+  badgeGradient.addColorStop(1, colorPalette.primary + "CC");
+  ctx.fillStyle = badgeGradient;
+  ctx.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, 25);
+  ctx.fill();
+
+  // Badge metni için uygun renk seç
+  const badgeTextColor = getTextColorForBackground(colorPalette.primary);
+  ctx.fillStyle = badgeTextColor;
+  ctx.fillText(badgeText, badgeX + badgeWidth / 2, badgeY + badgeHeight / 2);
+}
+
+// Logo ekleme fonksiyonu - Tamamen devre dışı bırakıldı
+async function addLogoToCanvas(ctx, logoUrl, width, height, variant, layout) {
+  // Canvas image loading sorunları nedeniyle logo yükleme devre dışı
+  // Direkt icon fallback kullanılacak
+  throw new Error("Logo loading disabled to avoid Canvas issues - using icon fallback");
+}
+
+// Renk parlaklığını hesaplayan fonksiyon
+function getColorBrightness(hexColor) {
+  try {
+    // Hex rengi temizle ve normalize et
+    let hex = hexColor
+      .toString()
+      .replace("#", "")
+      .replace(/[^0-9A-Fa-f]/g, "");
+
+    // Eğer 3 karakterse 6 karaktere çevir (örn: "abc" -> "aabbcc")
+    if (hex.length === 3) {
+      hex = hex
+        .split("")
+        .map((char) => char + char)
+        .join("");
+    }
+
+    // Eğer geçerli hex değilse varsayılan değer döndür
+    if (hex.length !== 6) {
+      return 128; // Orta parlaklık
+    }
+
+    const r = parseInt(hex.substr(0, 2), 16) || 0;
+    const g = parseInt(hex.substr(2, 2), 16) || 0;
+    const b = parseInt(hex.substr(4, 2), 16) || 0;
+
+    // Parlaklık hesapla (0-255 arası)
+    return (r * 299 + g * 587 + b * 114) / 1000;
+  } catch (error) {
+    console.log("Renk parlaklığı hesaplama hatası:", error.message);
+    return 128; // Hata durumunda orta parlaklık döndür
+  }
+}
+
+// Arkaplan rengine göre metin rengi belirle
+function getTextColorForBackground(backgroundColor) {
+  try {
+    const brightness = getColorBrightness(backgroundColor);
+    // Eğer arkaplan açıksa (>128) koyu metin, koyuysa açık metin
+    return brightness > 128 ? "#2D3748" : "#FFFFFF";
+  } catch (error) {
+    console.log("Metin rengi belirleme hatası:", error.message);
+    return "#FFFFFF"; // Hata durumunda beyaz döndür
+  }
+}
+
+// Gelişmiş icon ekleme fonksiyonu
+function addIconToCanvas(ctx, icon, width, height, color, variant, layout) {
+  try {
+    let iconSize, iconX, iconY;
+
+    switch (layout) {
+      case "centered":
+        iconSize = "80px";
+        iconX = width - 120;
+        iconY = 120;
+        break;
+      case "diagonal":
+        iconSize = "100px";
+        iconX = width - 120;
+        iconY = height - 60;
+        break;
+      case "corner":
+        iconSize = "120px";
+        iconX = 120;
+        iconY = height - 60;
+        break;
+      case "split":
+        iconSize = "90px";
+        iconX = width - 120;
+        iconY = height / 2;
+        break;
+      default:
+        iconSize = "100px";
+        iconX = width - 160;
+        iconY = 250;
+    }
+
+    // Icon'u güvenli şekilde çiz
+    ctx.save();
+
+    // Gölge efekti ekle
+    ctx.shadowColor = color + "40";
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetX = 2;
+    ctx.shadowOffsetY = 2;
+
+    ctx.font = iconSize + " Arial, sans-serif";
+    ctx.fillStyle = color + "80"; // Biraz şeffaflık
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(icon, iconX, iconY);
+
+    ctx.restore();
+
+    console.log(`Icon başarıyla eklendi: ${icon} at (${iconX}, ${iconY})`);
+  } catch (error) {
+    console.log("Icon ekleme hatası:", error.message);
+    // Hata durumunda basit bir kare çiz
+    try {
+      ctx.save();
+      ctx.fillStyle = color + "60";
+      ctx.fillRect(width - 150, 200, 80, 80);
+      ctx.restore();
+    } catch (fallbackError) {
+      console.log("Fallback icon da başarısız:", fallbackError.message);
+    }
+  }
+}
+
+// Hexagon çizme fonksiyonu
+function drawHexagon(ctx, x, y, size) {
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const angle = (i * Math.PI) / 3;
+    const px = x + size * Math.cos(angle);
+    const py = y + size * Math.sin(angle);
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  ctx.stroke();
+}
 
 // Start server
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
 });
+
+// Thumbnail yeniden oluşturma endpoint'i
+app.post("/regenerate-thumbnail", async (req, res) => {
+  try {
+    // Request body kontrolü
+    if (!req.body) {
+      return res.status(400).json({
+        success: false,
+        error: "Request body is missing",
+      });
+    }
+
+    const { questionId, title, category } = req.body;
+
+    // Gerekli parametreleri kontrol et
+    if (!questionId || !title || !category) {
+      return res.status(400).json({
+        success: false,
+        error: "Missing required parameters: questionId, title, category",
+      });
+    }
+
+    console.log("Thumbnail yeniden oluşturuluyor:", { questionId, title, category });
+
+    // Yeni thumbnail oluştur (random variant ile)
+    const thumbnailPath = await createThumbnail(title, category, questionId);
+
+    if (thumbnailPath) {
+      console.log("Thumbnail başarıyla oluşturuldu:", thumbnailPath);
+      res.json({
+        success: true,
+        thumbnail: thumbnailPath,
+      });
+    } else {
+      console.error("Thumbnail oluşturulamadı");
+      res.status(500).json({
+        success: false,
+        error: "Thumbnail oluşturulamadı",
+      });
+    }
+  } catch (error) {
+    console.error("Thumbnail yeniden oluşturma hatası:", error);
+    res.status(500).json({
+      success: false,
+      error: error.message || "Internal server error",
+    });
+  }
+});
+
+// Şekil çizme fonksiyonu
+function drawShapes(ctx, width, height, colorPalette, shapeVariant) {
+  switch (shapeVariant) {
+    case "circles":
+      drawRandomCircles(ctx, width, height, colorPalette);
+      break;
+    case "triangles":
+      drawRandomTriangles(ctx, width, height, colorPalette);
+      break;
+    case "hexagons":
+      drawRandomHexagons(ctx, width, height, colorPalette);
+      break;
+    case "waves":
+      drawRandomWaves(ctx, width, height, colorPalette);
+      break;
+    case "geometric":
+      drawRandomGeometricShapes(ctx, width, height, colorPalette);
+      break;
+    case "organic":
+      drawOrganicShapes(ctx, width, height, colorPalette);
+      break;
+  }
+}
+
+// Random daireler
+function drawRandomCircles(ctx, width, height, colorPalette) {
+  const colors = [colorPalette.primary, colorPalette.secondary, colorPalette.accent];
+
+  for (let i = 0; i < 5; i++) {
+    const x = Math.random() * width;
+    const y = Math.random() * height;
+    const radius = 50 + Math.random() * 150;
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    const opacity = "20";
+
+    const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
+    gradient.addColorStop(0, color + "40");
+    gradient.addColorStop(1, color + opacity);
+
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+// Random üçgenler
+function drawRandomTriangles(ctx, width, height, colorPalette) {
+  const colors = [colorPalette.primary, colorPalette.secondary, colorPalette.accent];
+
+  for (let i = 0; i < 6; i++) {
+    const x = Math.random() * width;
+    const y = Math.random() * height;
+    const size = 60 + Math.random() * 120;
+    const color = colors[Math.floor(Math.random() * colors.length)];
+
+    ctx.fillStyle = color + "25";
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + size, y);
+    ctx.lineTo(x + size / 2, y + size * 0.866);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+// Random hexagonlar
+function drawRandomHexagons(ctx, width, height, colorPalette) {
+  const colors = [colorPalette.primary, colorPalette.secondary, colorPalette.accent];
+
+  for (let i = 0; i < 4; i++) {
+    const x = Math.random() * width;
+    const y = Math.random() * height;
+    const size = 40 + Math.random() * 80;
+    const color = colors[Math.floor(Math.random() * colors.length)];
+
+    ctx.strokeStyle = color + "40";
+    ctx.lineWidth = 3;
+    drawHexagon(ctx, x, y, size);
+  }
+}
+
+// Random dalgalar
+function drawRandomWaves(ctx, width, height, colorPalette) {
+  const colors = [colorPalette.bg1, colorPalette.bg2, colorPalette.accent];
+
+  for (let i = 0; i < 3; i++) {
+    const startY = (height / 4) * (i + 1);
+    const amplitude = 20 + Math.random() * 40;
+    const frequency = 0.01 + Math.random() * 0.02;
+    const color = colors[i % colors.length];
+
+    ctx.fillStyle = color + "30";
+    ctx.beginPath();
+    ctx.moveTo(0, startY);
+
+    for (let x = 0; x <= width; x += 5) {
+      const y = startY + Math.sin(x * frequency) * amplitude;
+      ctx.lineTo(x, y);
+    }
+
+    ctx.lineTo(width, height);
+    ctx.lineTo(0, height);
+    ctx.fill();
+  }
+}
+
+// Random geometric şekiller
+function drawRandomGeometricShapes(ctx, width, height, colorPalette) {
+  const colors = [colorPalette.primary, colorPalette.secondary, colorPalette.accent];
+
+  // Üçgenler
+  for (let i = 0; i < 4; i++) {
+    const x = Math.random() * width;
+    const y = Math.random() * height;
+    const size = 50 + Math.random() * 100;
+    const color = colors[Math.floor(Math.random() * colors.length)];
+
+    ctx.fillStyle = color + "25";
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + size, y);
+    ctx.lineTo(x + size / 2, y + size);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Dikdörtgenler
+  for (let i = 0; i < 3; i++) {
+    const x = Math.random() * width;
+    const y = Math.random() * height;
+    const w = 80 + Math.random() * 120;
+    const h = 40 + Math.random() * 80;
+    const color = colors[Math.floor(Math.random() * colors.length)];
+
+    ctx.fillStyle = color + "20";
+    ctx.fillRect(x, y, w, h);
+  }
+}
+
+// Organik şekiller
+function drawOrganicShapes(ctx, width, height, colorPalette) {
+  const colors = [colorPalette.primary, colorPalette.secondary, colorPalette.accent];
+
+  for (let i = 0; i < 4; i++) {
+    const centerX = Math.random() * width;
+    const centerY = Math.random() * height;
+    const color = colors[Math.floor(Math.random() * colors.length)];
+
+    ctx.fillStyle = color + "25";
+    ctx.beginPath();
+
+    const points = 8;
+    for (let j = 0; j < points; j++) {
+      const angle = (j / points) * Math.PI * 2;
+      const radius = 40 + Math.random() * 60;
+      const x = centerX + Math.cos(angle) * radius;
+      const y = centerY + Math.sin(angle) * radius;
+
+      if (j === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+
+    ctx.closePath();
+    ctx.fill();
+  }
+}

@@ -161,12 +161,19 @@
                 <!-- Thumbnail and Basic Info -->
                 <div class="row mb-4">
                   <div class="col-md-4">
-                    <div class="thumbnail-placeholder d-flex align-items-center justify-content-center">
-                      <div class="text-center text-muted">
-                        <i class="fas fa-image fa-3x mb-2"></i>
-                        <p class="mb-0 fw-medium">Thumbnail</p>
-                        <small>(Coming Soon)</small>
+                    <div class="position-relative">
+                      <div class="thumbnail-placeholder d-flex align-items-center justify-content-center" id="thumbnailContainer">
+                        <div class="text-center text-muted" id="thumbnailPlaceholder">
+                          <i class="fas fa-image fa-3x mb-2"></i>
+                          <p class="mb-0 fw-medium">Thumbnail</p>
+                          <small>(Coming Soon)</small>
+                        </div>
+                        <img id="thumbnailImage" class="w-100 h-100" style="display: none; object-fit: cover; border-radius: 12px" alt="Video Thumbnail" />
                       </div>
+                      <!-- Yeniden oluştur butonu -->
+                      <button id="regenerateThumbnail" class="btn btn-sm btn-outline-primary position-absolute" style="top: 10px; right: 10px; display: none; z-index: 10" title="Yeni tasarım oluştur">
+                        <i class="fas fa-sync-alt"></i>
+                      </button>
                     </div>
                   </div>
                   <div class="col-md-8">
@@ -232,7 +239,7 @@
         const progressSteps = document.getElementById("progressSteps");
 
         // Progress adımları
-        const steps = ["AI ile içerik oluşturuluyor...", "Kod blokları analiz ediliyor...", "Süre hesaplamaları yapılıyor...", "Video içeriği hazırlanıyor...", "Kod resimleri oluşturuluyor..."];
+        const steps = ["AI ile içerik oluşturuluyor...", "Kod blokları analiz ediliyor...", "Süre hesaplamaları yapılıyor...", "Video içeriği hazırlanıyor...", "Kod resimleri oluşturuluyor...", "Thumbnail oluşturuluyor..."];
 
         // Progress güncelleyici fonksiyon
         function updateProgress(stepIndex, progress, customMessage = null) {
@@ -296,6 +303,17 @@
                 const keywordsDiv = document.getElementById("keywords");
                 keywordsDiv.innerHTML = result.data.keywords.map((keyword) => `<span class="tag-badge text-white">${keyword}</span>`).join("");
 
+                // Thumbnail göster
+                if (result.data.thumbnail) {
+                  document.getElementById("thumbnailPlaceholder").style.display = "none";
+                  const thumbnailImg = document.getElementById("thumbnailImage");
+                  thumbnailImg.src = result.data.thumbnail;
+                  thumbnailImg.style.display = "block";
+
+                  // Yeniden oluştur butonunu göster
+                  document.getElementById("regenerateThumbnail").style.display = "block";
+                }
+
                 // Süre bilgisini göster
                 if (result.data.estimatedDurationFormatted) {
                   document.getElementById("totalDuration").textContent = result.data.estimatedDurationFormatted;
@@ -345,6 +363,49 @@
         } catch (error) {
           document.querySelector(".loading-spinner").style.display = "none";
           alert("Bir hata oluştu: " + error.message);
+        }
+      });
+
+      // Thumbnail yeniden oluşturma
+      document.getElementById("regenerateThumbnail").addEventListener("click", async function () {
+        const questionId = "<%= question.id %>";
+        const title = `<%= question.title.replace(/"/g, '\\"') %>`;
+        const category = "<%= question.category %>";
+
+        // Butonu deaktif et ve loading göster
+        const btn = this;
+        const originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+        try {
+          const response = await fetch("/regenerate-thumbnail", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              questionId: questionId,
+              title: title,
+              category: category,
+            }),
+          });
+
+          const result = await response.json();
+
+          if (result.success) {
+            // Yeni thumbnail'i göster
+            const thumbnailImg = document.getElementById("thumbnailImage");
+            thumbnailImg.src = result.thumbnail + "?t=" + Date.now(); // Cache busting
+          } else {
+            alert("Thumbnail oluşturulamadı: " + result.error);
+          }
+        } catch (error) {
+          alert("Hata oluştu: " + error.message);
+        } finally {
+          // Butonu tekrar aktif et
+          btn.disabled = false;
+          btn.innerHTML = originalHtml;
         }
       });
     </script>
