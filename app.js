@@ -927,6 +927,34 @@ app.get("/video-generator/:id", async (req, res) => {
   res.render("video-generator", { question });
 });
 
+// Video oluşturma sayfası için POST route (video verisini alır)
+app.post("/video-creator/:id", async (req, res) => {
+  const questionId = req.params.id;
+  const videoData = req.body;
+  const questions = await loadQuestions();
+  const question = questions.find((q) => q.id == questionId);
+
+  if (!question) {
+    return res.status(404).send("Soru bulunamadı");
+  }
+
+  res.render("video-creator", { question, videoData });
+});
+
+// Video oluşturma sayfası (fallback)
+app.get("/video-creator/:id", async (req, res) => {
+  const questionId = req.params.id;
+  const questions = await loadQuestions();
+  const question = questions.find((q) => q.id == questionId);
+
+  if (!question) {
+    return res.status(404).send("Soru bulunamadı");
+  }
+
+  // Eğer video verisi yoksa generator'a yönlendir
+  res.redirect(`/video-generator/${questionId}`);
+});
+
 // Video içerik oluşturma API
 app.post("/generate-video-content", async (req, res) => {
   try {
@@ -1225,13 +1253,15 @@ function parseGeminiResponse(text) {
 
       // OUTRO adımını ekle
       const outroText = line.replace("OUTRO:", "").trim();
-      steps.push({ text: outroText, hasCode: false, isOutro: true });
-      console.log("Added outro:", outroText);
+      if (outroText && outroText.length > 0) {
+        steps.push({ text: outroText, hasCode: false, isOutro: true });
+        console.log("Added outro:", outroText);
+      }
     } else if (currentSection === "steps") {
       // Adım numarası ile başlıyorsa
       if (line.match(/^\d+\./)) {
         // Önceki adımı kaydet
-        if (currentStep) {
+        if (currentStep && currentStep.trim().length > 0) {
           const hasCode = currentStep.includes("CODE_BLOCK:");
           steps.push({ text: currentStep, hasCode: hasCode });
           console.log("Added step:", { text: currentStep, hasCode: hasCode });
@@ -1262,11 +1292,14 @@ function parseGeminiResponse(text) {
   }
 
   // Son adımı kaydet
-  if (currentStep) {
+  if (currentStep && currentStep.trim().length > 0) {
     const hasCode = currentStep.includes("CODE_BLOCK:");
     steps.push({ text: currentStep, hasCode: hasCode });
     console.log("Added final step:", { text: currentStep, hasCode: hasCode });
   }
+
+  // Boş adımları filtrele
+  steps = steps.filter((step) => step.text && step.text.trim().length > 0);
 
   console.log("=== PARSE RESULT ===");
   console.log("Title:", title);
@@ -2118,11 +2151,37 @@ function cleanTextForTTS(text) {
       // Tek tırnak içindeki içeriği koru, sadece tırnakları kaldır
       return content;
     })
+    // HTML tag'larını kaldır (açılış ve kapanış tag'ları)
+    .replace(/<\/?[^>]+(>|$)/g, "") // Tüm HTML tag'larını kaldır
+    .replace(/&lt;/g, "") // HTML entity'leri kaldır
+    .replace(/&gt;/g, "")
+    .replace(/&amp;/g, "and")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ")
+    // Kod yapılarındaki parantezleri temizle (fonksiyon çağrıları, metodlar)
+    .replace(/\b([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\([^)]*\)/g, (match, funcName) => {
+      // Fonksiyon adından sonra parantez içindeki parametreleri kaldır
+      // Örnek: go(test) -> go test, is("test") -> is test
+      const params = match.match(/\(([^)]*)\)/)[1];
+      if (params.trim()) {
+        // Parametreleri temizle ve fonksiyon adıyla birleştir
+        const cleanParams = params
+          .replace(/["']/g, "") // Tırnakları kaldır
+          .replace(/,/g, " ") // Virgülleri boşlukla değiştir
+          .trim();
+        return cleanParams ? `${funcName} ${cleanParams}` : funcName;
+      }
+      return funcName;
+    })
+    // Markdown temizleme
     .replace(/\*\*(.*?)\*\*/g, "$1") // Bold markdown
     .replace(/\*(.*?)\*/g, "$1") // Italic markdown
     .replace(/\[.*?\]/g, "") // Köşeli parantezleri kaldır
-    .replace(/\(.*?\)/g, "") // Normal parantezleri kaldır
+    // Normal açıklayıcı parantezleri kaldır (kod yapıları temizlendikten sonra)
+    .replace(/\s*\([^)]*\)\s*/g, " ") // Kalan parantezleri kaldır
     .replace(/[#*_]/g, "") // Markdown karakterleri
+    // Boşluk ve satır temizleme
     .replace(/\s+/g, " ") // Çoklu boşlukları tek boşluğa çevir
     .replace(/\n+/g, ". ") // Satır sonlarını nokta ile değiştir
     .trim();

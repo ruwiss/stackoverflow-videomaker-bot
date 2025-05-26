@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Video Oluşturucu - <%= question.title %></title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+    <style>
+      .video-preview {
+        background: #000;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      }
+
+      .control-panel {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 15px;
+        padding: 25px;
+        color: white;
+      }
+
+      .step-indicator {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 15px;
+      }
+
+      .progress-ring {
+        transform: rotate(-90deg);
+      }
+
+      .progress-ring-background {
+        fill: none;
+        stroke: rgba(255, 255, 255, 0.2);
+        stroke-width: 4;
+      }
+
+      .progress-ring-fill {
+        fill: none;
+        stroke: #28a745;
+        stroke-width: 4;
+        stroke-linecap: round;
+        transition: stroke-dashoffset 0.5s ease;
+      }
+
+      .btn-create-video {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        padding: 15px 30px;
+        border-radius: 25px;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        transition: all 0.3s ease;
+      }
+
+      .btn-create-video:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+      }
+
+      #videoCanvas {
+        width: 100%;
+        height: auto;
+        max-height: 400px;
+        border: 2px solid #dee2e6;
+        border-radius: 10px;
+        aspect-ratio: 16/9;
+        object-fit: contain;
+      }
+
+      .video-stats {
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 10px 15px;
+        border-radius: 5px;
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        font-family: "Courier New", monospace;
+        font-size: 12px;
+      }
+
+      .timeline {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        margin-top: 20px;
+      }
+
+      .timeline-step {
+        display: flex;
+        align-items: center;
+        padding: 10px;
+        margin: 5px 0;
+        background: white;
+        border-radius: 8px;
+        border-left: 4px solid #6c757d;
+        transition: all 0.3s ease;
+      }
+
+      .timeline-step.active {
+        border-left-color: #28a745;
+        background: #f8fff9;
+      }
+
+      .timeline-step.completed {
+        border-left-color: #007bff;
+        background: #f0f8ff;
+      }
+    </style>
+  </head>
+  <body class="bg-light">
+    <div class="container-fluid py-4">
+      <div class="row">
+        <!-- Sol Panel - Video Önizleme -->
+        <div class="col-lg-8">
+          <div class="card shadow-sm">
+            <div class="card-header bg-dark text-white">
+              <h5 class="mb-0"><i class="fas fa-video me-2"></i>Video Önizleme - 1920x1080</h5>
+            </div>
+            <div class="card-body p-0 position-relative">
+              <canvas id="videoCanvas" width="1920" height="1080"></canvas>
+              <div class="video-stats" id="videoStats">Adım: 0/0 | Süre: 00:00 | FPS: 30</div>
+            </div>
+          </div>
+
+          <!-- Timeline -->
+          <div class="timeline">
+            <h6><i class="fas fa-timeline me-2"></i>Adım Timeline</h6>
+            <div id="timelineContainer">
+              <!-- Timeline steps will be inserted here -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Sağ Panel - Kontroller -->
+        <div class="col-lg-4">
+          <div class="control-panel">
+            <h5 class="text-center mb-4"><i class="fas fa-cogs me-2"></i>Video Kontrolü</h5>
+
+            <!-- Progress Ring -->
+            <div class="text-center mb-4">
+              <svg width="120" height="120" class="progress-ring">
+                <circle class="progress-ring-background" cx="60" cy="60" r="54"></circle>
+                <circle class="progress-ring-fill" cx="60" cy="60" r="54" stroke-dasharray="339.292" stroke-dashoffset="339.292" id="progressRing"></circle>
+              </svg>
+              <div class="mt-2">
+                <strong id="progressText">0%</strong>
+                <br />
+                <small id="progressSubtext">Hazırlanıyor</small>
+              </div>
+            </div>
+
+            <!-- Video Bilgileri -->
+            <div class="step-indicator">
+              <h6><i class="fas fa-info-circle me-2"></i>Video Bilgileri</h6>
+              <p class="mb-1"><strong>Başlık:</strong> <%= videoData.title %></p>
+              <p class="mb-1"><strong>Toplam Adım:</strong> <%= videoData.steps.length %></p>
+              <p class="mb-1"><strong>Tahmini Süre:</strong> <%= videoData.estimatedDurationFormatted %></p>
+              <p class="mb-0"><strong>Çözünürlük:</strong> 1920x1080 (Full HD)</p>
+            </div>
+
+            <!-- Mevcut Adım -->
+            <div class="step-indicator">
+              <h6><i class="fas fa-play-circle me-2"></i>Mevcut Adım</h6>
+              <p class="mb-1" id="currentStepInfo">Başlamadı</p>
+              <div class="progress mt-2">
+                <div class="progress-bar bg-success" role="progressbar" style="width: 0%" id="stepProgress"></div>
+              </div>
+            </div>
+
+            <!-- Kontrol Butonları -->
+            <div class="text-center mt-4">
+              <button class="btn btn-create-video btn-lg w-100 mb-3" id="startVideoBtn"><i class="fas fa-play me-2"></i>Video Oluşturmaya Başla</button>
+
+              <button class="btn btn-outline-light w-100 mb-2" id="previewBtn"><i class="fas fa-eye me-2"></i>Önizleme</button>
+
+              <button class="btn btn-outline-light w-100" id="downloadBtn" style="display: none"><i class="fas fa-download me-2"></i>Video İndir</button>
+            </div>
+
+            <!-- Video Ayarları -->
+            <div class="step-indicator mt-4">
+              <h6><i class="fas fa-cog me-2"></i>Video Ayarları</h6>
+
+              <div class="mb-3">
+                <label class="form-label">FPS:</label>
+                <select class="form-select" id="fpsSelect">
+                  <option value="24">24 FPS (Sinema)</option>
+                  <option value="30" selected>30 FPS (Standard)</option>
+                  <option value="60">60 FPS (Smooth)</option>
+                </select>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">Kalite:</label>
+                <select class="form-select" id="qualitySelect">
+                  <option value="high" selected>Yüksek Kalite</option>
+                  <option value="medium">Orta Kalite</option>
+                  <option value="low">Düşük Kalite</option>
+                </select>
+              </div>
+
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="includeAudio" checked />
+                <label class="form-check-label" for="includeAudio"> Ses Dahil Et </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      // Video data from server
+      const videoData = <%- JSON.stringify(videoData) %>;
+      const questionId = '<%= question.id %>';
+
+      console.log('Video Data:', videoData);
+
+      // Canvas and context
+      const canvas = document.getElementById('videoCanvas');
+      const ctx = canvas.getContext('2d');
+
+      // Video settings
+      let fps = 30;
+      let quality = 'high';
+      let includeAudio = true;
+
+      // Video state
+      let isRecording = false;
+      let mediaRecorder = null;
+      let recordedChunks = [];
+      let currentStepIndex = 0;
+      let currentStepTime = 0;
+      let animationId = null;
+      let startTime = null;
+      let audioContext = null;
+      let audioDestination = null;
+      let currentAudio = null;
+      let adjustedStepDurations = {};
+      let isTransitioning = false;
+      let transitionTime = 0;
+      let currentTransitionDuration = 2; // Dinamik geçiş süresi
+      let audioDurationsLoaded = false;
+
+      // UI Elements
+      const startBtn = document.getElementById('startVideoBtn');
+      const previewBtn = document.getElementById('previewBtn');
+      const downloadBtn = document.getElementById('downloadBtn');
+      const progressRing = document.getElementById('progressRing');
+      const progressText = document.getElementById('progressText');
+      const progressSubtext = document.getElementById('progressSubtext');
+      const currentStepInfo = document.getElementById('currentStepInfo');
+      const stepProgress = document.getElementById('stepProgress');
+      const videoStats = document.getElementById('videoStats');
+      const timelineContainer = document.getElementById('timelineContainer');
+
+      // Initialize
+      initializeCanvas();
+      createTimeline();
+      setupEventListeners();
+      preloadAudioDurations();
+      preloadImages();
+
+      function initializeCanvas() {
+        // Set canvas background
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw initial frame
+        drawWelcomeScreen();
+      }
+
+      function drawWelcomeScreen() {
+        // Clear canvas
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw gradient background
+        const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+        gradient.addColorStop(0, '#667eea');
+        gradient.addColorStop(1, '#764ba2');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw title
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 80px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        const title = videoData.title;
+        const maxWidth = canvas.width - 200;
+        const words = title.split(' ');
+        let lines = [];
+        let currentLine = '';
+
+        for (const word of words) {
+          const testLine = currentLine + (currentLine ? ' ' : '') + word;
+          const metrics = ctx.measureText(testLine);
+
+          if (metrics.width > maxWidth && currentLine) {
+            lines.push(currentLine);
+            currentLine = word;
+          } else {
+            currentLine = testLine;
+          }
+        }
+        if (currentLine) lines.push(currentLine);
+
+        const lineHeight = 100;
+        const startY = (canvas.height / 2) - ((lines.length - 1) * lineHeight / 2);
+
+        lines.forEach((line, index) => {
+          ctx.fillText(line, canvas.width / 2, startY + index * lineHeight);
+        });
+
+        // Draw subtitle
+        ctx.font = 'normal 40px Arial';
+        ctx.fillText('Hazır. Video oluşturmaya başlamak için butona tıklayın.', canvas.width / 2, canvas.height - 200);
+      }
+
+      function createTimeline() {
+        timelineContainer.innerHTML = '';
+
+        videoData.steps.forEach((step, index) => {
+          const timelineStep = document.createElement('div');
+          timelineStep.className = 'timeline-step';
+          timelineStep.id = `timeline-step-${index}`;
+
+          const hasImage = step.codeImage ? '<i class="fas fa-image text-primary ms-2"></i>' : '';
+          const hasAudio = step.audioPath ? '<i class="fas fa-volume-up text-success ms-2"></i>' : '';
+
+          timelineStep.innerHTML = `
+            <div class="flex-grow-1">
+              <strong>Adım ${index + 1}</strong> (${step.duration}s)
+              <br>
+              <small class="text-muted">${step.text.substring(0, 60)}...</small>
+              ${hasImage}
+              ${hasAudio}
+            </div>
+            <div class="text-end">
+              <i class="fas fa-clock text-muted"></i>
+            </div>
+          `;
+
+          timelineContainer.appendChild(timelineStep);
+        });
+      }
+
+      function setupEventListeners() {
+        startBtn.addEventListener('click', startVideoCreation);
+        downloadBtn.addEventListener('click', downloadVideo);
+
+        document.getElementById('fpsSelect').addEventListener('change', (e) => {
+          fps = parseInt(e.target.value);
+        });
+
+        document.getElementById('qualitySelect').addEventListener('change', (e) => {
+          quality = e.target.value;
+        });
+
+        document.getElementById('includeAudio').addEventListener('change', (e) => {
+          includeAudio = e.target.checked;
+        });
+      }
+
+            async function startVideoCreation() {
+        if (isRecording) return;
+
+        // Check if audio durations are loaded
+        if (!audioDurationsLoaded) {
+          alert('Ses dosyaları henüz yükleniyor, lütfen bekleyin...');
+          return;
+        }
+
+        try {
+          isRecording = true;
+          currentStepIndex = 0;
+          currentStepTime = 0;
+          recordedChunks = [];
+          isTransitioning = false;
+          transitionTime = 0;
+
+          startBtn.disabled = true;
+          startBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Video Oluşturuluyor...';
+
+          // Setup audio context for mixing
+          if (includeAudio) {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            audioDestination = audioContext.createMediaStreamDestination();
+          }
+
+          // Setup MediaRecorder with video and audio
+          let stream = canvas.captureStream(fps);
+
+          if (includeAudio && audioDestination) {
+            // Combine video and audio streams
+            const videoTrack = stream.getVideoTracks()[0];
+            const audioTrack = audioDestination.stream.getAudioTracks()[0];
+
+            stream = new MediaStream([videoTrack, audioTrack]);
+          }
+
+          const options = {
+            mimeType: 'video/webm;codecs=vp9',
+            videoBitsPerSecond: quality === 'high' ? 8000000 : quality === 'medium' ? 4000000 : 2000000
+          };
+
+          mediaRecorder = new MediaRecorder(stream, options);
+
+          mediaRecorder.ondataavailable = (event) => {
+            if (event.data.size > 0) {
+              recordedChunks.push(event.data);
+            }
+          };
+
+          mediaRecorder.onstop = () => {
+            const blob = new Blob(recordedChunks, { type: 'video/webm' });
+            const url = URL.createObjectURL(blob);
+
+            downloadBtn.style.display = 'block';
+            downloadBtn.onclick = () => {
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `video_${questionId}_${Date.now()}.webm`;
+              a.click();
+            };
+
+            startBtn.disabled = false;
+            startBtn.innerHTML = '<i class="fas fa-play me-2"></i>Yeni Video Oluştur';
+
+            updateProgress(100, 'Tamamlandı!');
+
+            // Cleanup audio
+            if (audioContext) {
+              audioContext.close();
+              audioContext = null;
+              audioDestination = null;
+            }
+          };
+
+          mediaRecorder.start();
+          startTime = Date.now();
+
+          // Reset timing variables
+          videoStartTime = 0;
+          lastFrameTime = 0;
+
+          // Start first step audio immediately
+          if (includeAudio && videoData.steps.length > 0 && videoData.steps[0].audioPath) {
+            setTimeout(() => {
+              playStepAudioForRecording(videoData.steps[0].audioPath);
+            }, 200);
+          }
+
+          // Start animation loop
+          animateVideo();
+
+        } catch (error) {
+          console.error('Video creation error:', error);
+          alert('Video oluşturulurken hata oluştu: ' + error.message);
+          isRecording = false;
+          startBtn.disabled = false;
+          startBtn.innerHTML = '<i class="fas fa-play me-2"></i>Video Oluşturmaya Başla';
+
+          // Cleanup audio on error
+          if (audioContext) {
+            audioContext.close();
+            audioContext = null;
+            audioDestination = null;
+          }
+        }
+      }
+
+                  let lastFrameTime = 0;
+      let videoStartTime = 0;
+      let stepStartTimes = [];
+
+      function calculateStepStartTimes() {
+        stepStartTimes = [];
+        let cumulativeTime = 0;
+
+        for (let i = 0; i < videoData.steps.length; i++) {
+          stepStartTimes[i] = cumulativeTime;
+          const stepDuration = adjustedStepDurations[i] || videoData.steps[i].duration;
+          // Her adım bittiğinde 1 saniye bekleme
+          cumulativeTime += stepDuration + (i < videoData.steps.length - 1 ? 1 : 0);
+        }
+
+        return cumulativeTime; // Total video duration
+      }
+
+      function animateVideo(timestamp) {
+        if (!isRecording) return;
+
+        // Initialize timing
+        if (!videoStartTime) {
+          videoStartTime = timestamp;
+          lastFrameTime = timestamp;
+          calculateStepStartTimes();
+        }
+
+        // Calculate elapsed time in seconds
+        const totalElapsedTime = (timestamp - videoStartTime) / 1000;
+
+        // Determine which step we should be in based on elapsed time
+        let targetStepIndex = 0;
+        let stepStartTime = 0;
+
+        for (let i = 0; i < videoData.steps.length; i++) {
+          const stepDuration = adjustedStepDurations[i] || videoData.steps[i].duration;
+          const stepEndTime = stepStartTimes[i] + stepDuration;
+
+          if (totalElapsedTime >= stepStartTimes[i] && totalElapsedTime < stepEndTime + 1) {
+            targetStepIndex = i;
+            stepStartTime = stepStartTimes[i];
+            break;
+          }
+
+          // Check if we're in transition period (1 second after step ends)
+          if (totalElapsedTime >= stepEndTime && totalElapsedTime < stepEndTime + 1) {
+            targetStepIndex = i;
+            stepStartTime = stepStartTimes[i];
+            break;
+          }
+        }
+
+        // Check if video is completed
+        const totalVideoTime = calculateStepStartTimes();
+        if (totalElapsedTime >= totalVideoTime) {
+          if (currentAudio) {
+            currentAudio.pause();
+            currentAudio = null;
+          }
+          mediaRecorder.stop();
+          isRecording = false;
+          return;
+        }
+
+        const currentStep = videoData.steps[targetStepIndex];
+        const stepElapsedTime = totalElapsedTime - stepStartTime;
+        const actualStepDuration = adjustedStepDurations[targetStepIndex] || currentStep.duration;
+
+        // Update step if changed
+        if (targetStepIndex !== currentStepIndex) {
+          // Mark previous step as completed
+          if (currentStepIndex >= 0) {
+            const prevTimelineStep = document.getElementById(`timeline-step-${currentStepIndex}`);
+            if (prevTimelineStep) {
+              prevTimelineStep.classList.add('completed');
+            }
+          }
+
+          // Stop current audio before changing step
+          if (currentAudio) {
+            currentAudio.pause();
+            currentAudio = null;
+          }
+
+          currentStepIndex = targetStepIndex;
+
+          // Play audio for new step (including first step)
+          if (includeAudio && currentStep.audioPath) {
+            // Small delay to ensure proper audio initialization
+            setTimeout(() => {
+              playStepAudioForRecording(currentStep.audioPath);
+            }, 100);
+          }
+        }
+
+        // Determine if we're in transition phase (1 second after step ends)
+        if (stepElapsedTime >= actualStepDuration) {
+          isTransitioning = true;
+          transitionTime = stepElapsedTime - actualStepDuration;
+          currentStepTime = actualStepDuration;
+
+          // Stop audio during transition
+          if (currentAudio && Math.abs(stepElapsedTime - actualStepDuration) < 0.1) {
+            currentAudio.pause();
+            currentAudio = null;
+          }
+        } else {
+          isTransitioning = false;
+          transitionTime = 0;
+          currentStepTime = stepElapsedTime;
+        }
+
+        // Draw current frame
+        drawVideoFrame(currentStep, currentStepTime);
+
+        // Update timeline
+        updateTimeline();
+
+        // Update stats
+        updateStats();
+
+        // Calculate progress
+        const progress = (totalElapsedTime / totalVideoTime) * 100;
+        updateProgress(progress, `Adım ${currentStepIndex + 1}/${videoData.steps.length}`);
+
+        // Continue animation with precise timing
+        animationId = requestAnimationFrame(animateVideo);
+      }
+
+            let currentImage = null;
+      let imageCache = {};
+
+      function drawVideoFrame(step, stepTime) {
+        // Clear canvas
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw background gradient
+        const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+        gradient.addColorStop(0, '#667eea20');
+        gradient.addColorStop(1, '#764ba240');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw text area background
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+        ctx.fillRect(50, 50, canvas.width - 100, 200);
+
+        // Draw step text
+        ctx.fillStyle = '#2d3748';
+        ctx.font = 'bold 48px Arial';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+
+        const text = step.text;
+        const maxWidth = canvas.width - 140;
+        const words = text.split(' ');
+        let lines = [];
+        let currentLine = '';
+
+        for (const word of words) {
+          const testLine = currentLine + (currentLine ? ' ' : '') + word;
+          const metrics = ctx.measureText(testLine);
+
+          if (metrics.width > maxWidth && currentLine) {
+            lines.push(currentLine);
+            currentLine = word;
+          } else {
+            currentLine = testLine;
+          }
+        }
+        if (currentLine) lines.push(currentLine);
+
+        const lineHeight = 55;
+        lines.forEach((line, index) => {
+          if (index < 3) { // Max 3 lines
+            ctx.fillText(line, 70, 70 + index * lineHeight);
+          }
+        });
+
+        // Draw code image - immediate display with cache
+        if (step.codeImage) {
+          if (imageCache[step.codeImage]) {
+            // Image already cached, draw immediately
+            currentImage = imageCache[step.codeImage];
+            drawImage(currentImage);
+          } else {
+            // Load and cache image
+            loadAndCacheImage(step.codeImage);
+          }
+        } else if (currentImage) {
+          // Keep previous image if no new image
+          drawImage(currentImage);
+        }
+
+                // Draw progress bar for current step
+        const actualDuration = adjustedStepDurations[currentStepIndex] || step.duration;
+        const stepProgress = Math.min(1, stepTime / actualDuration);
+        ctx.fillStyle = '#28a745';
+        ctx.fillRect(70, 270, (canvas.width - 140) * stepProgress, 10);
+
+        ctx.strokeStyle = '#dee2e6';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(70, 270, canvas.width - 140, 10);
+      }
+
+      function loadAndCacheImage(imagePath) {
+        if (imageCache[imagePath]) {
+          currentImage = imageCache[imagePath];
+          drawImage(currentImage);
+          return;
+        }
+
+        const img = new Image();
+        img.onload = () => {
+          imageCache[imagePath] = img;
+          currentImage = img;
+          drawImage(img);
+        };
+        img.src = imagePath;
+      }
+
+      function loadAndDrawImage(imagePath) {
+        loadAndCacheImage(imagePath);
+      }
+
+      function drawImage(img) {
+        const maxWidth = canvas.width - 100;
+        const maxHeight = canvas.height - 400;
+
+        let drawWidth = img.width;
+        let drawHeight = img.height;
+
+        // Scale to fit
+        if (drawWidth > maxWidth) {
+          drawHeight = (drawHeight * maxWidth) / drawWidth;
+          drawWidth = maxWidth;
+        }
+
+        if (drawHeight > maxHeight) {
+          drawWidth = (drawWidth * maxHeight) / drawHeight;
+          drawHeight = maxHeight;
+        }
+
+        // Center the image
+        const x = (canvas.width - drawWidth) / 2;
+        const y = 320;
+
+        // Draw image with border
+        ctx.strokeStyle = '#dee2e6';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(x - 3, y - 3, drawWidth + 6, drawHeight + 6);
+
+        ctx.drawImage(img, x, y, drawWidth, drawHeight);
+      }
+
+      function updateTimeline() {
+        // Remove all active classes
+        document.querySelectorAll('.timeline-step').forEach(step => {
+          step.classList.remove('active');
+        });
+
+        // Add active class to current step
+        const currentTimelineStep = document.getElementById(`timeline-step-${currentStepIndex}`);
+        if (currentTimelineStep) {
+          currentTimelineStep.classList.add('active');
+          currentTimelineStep.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      }
+
+            function updateStats() {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        const minutes = Math.floor(elapsed / 60);
+        const seconds = elapsed % 60;
+
+        // Calculate total and elapsed duration with adjustments
+        let totalDuration = 0;
+        let elapsedDuration = 0;
+
+        for (let i = 0; i < videoData.steps.length; i++) {
+          const stepDuration = adjustedStepDurations[i] || videoData.steps[i].duration;
+          totalDuration += stepDuration;
+
+          if (i < currentStepIndex) {
+            elapsedDuration += stepDuration;
+          }
+        }
+
+        elapsedDuration += currentStepTime;
+        const remainingDuration = totalDuration - elapsedDuration;
+
+        videoStats.textContent = `Adım: ${currentStepIndex + 1}/${videoData.steps.length} | Süre: ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')} | Kalan: ${Math.ceil(remainingDuration)}s | FPS: ${fps}`;
+
+        const currentStep = videoData.steps[currentStepIndex];
+        if (currentStep) {
+          const actualStepDuration = adjustedStepDurations[currentStepIndex] || currentStep.duration;
+          currentStepInfo.textContent = `Adım ${currentStepIndex + 1}: ${currentStep.text.substring(0, 50)}... (${actualStepDuration.toFixed(1)}s)`;
+
+          const stepProg = Math.min(100, (currentStepTime / actualStepDuration) * 100);
+          stepProgress.style.width = stepProg + '%';
+        }
+      }
+
+      function updateProgress(percentage, subtext) {
+        const circumference = 2 * Math.PI * 54;
+        const offset = circumference - (percentage / 100) * circumference;
+
+        progressRing.style.strokeDashoffset = offset;
+        progressText.textContent = Math.round(percentage) + '%';
+        progressSubtext.textContent = subtext;
+      }
+
+                        function playStepAudioForRecording(audioPath) {
+        if (!includeAudio || !audioContext || !audioDestination) {
+          return;
+        }
+
+        // Stop previous audio
+        if (currentAudio) {
+          currentAudio.pause();
+          currentAudio = null;
+        }
+
+        try {
+          const audio = new Audio(audioPath);
+          audio.crossOrigin = 'anonymous';
+          currentAudio = audio;
+
+          audio.addEventListener('loadeddata', () => {
+            try {
+              // Create audio source and connect to destination
+              const source = audioContext.createMediaElementSource(audio);
+              source.connect(audioDestination);
+
+              // Also connect to default output for monitoring
+              source.connect(audioContext.destination);
+
+              audio.play().catch(error => {
+                console.log('Audio play error:', error);
+              });
+            } catch (error) {
+              console.log('Audio source creation error:', error);
+            }
+          });
+
+          audio.addEventListener('error', (error) => {
+            console.log('Audio load error:', error);
+          });
+
+          // Load the audio
+          audio.load();
+
+        } catch (error) {
+          console.log('Audio setup error:', error);
+        }
+      }
+
+      function playStepAudio(audioPath) {
+        // For preview mode - simpler audio playback
+        if (currentAudio) {
+          currentAudio.pause();
+          currentAudio = null;
+        }
+
+        try {
+          currentAudio = new Audio(audioPath);
+          currentAudio.play().catch(error => {
+            console.log('Preview audio play error:', error);
+          });
+        } catch (error) {
+          console.log('Preview audio setup error:', error);
+        }
+      }
+
+            let previewIndex = 0;
+      let previewMode = false;
+      let previewTimeout = null;
+      let previewAudio = null;
+
+      function previewVideo() {
+        if (isRecording) return;
+
+        previewMode = true;
+        previewIndex = 0;
+
+        // Update button text
+        previewBtn.innerHTML = '<i class="fas fa-stop me-2"></i>Önizlemeyi Durdur';
+
+        startPreviewLoop();
+      }
+
+      function startPreviewLoop() {
+        if (!previewMode || previewIndex >= videoData.steps.length) {
+          stopPreview();
+          return;
+        }
+
+        const step = videoData.steps[previewIndex];
+
+        // Draw frame
+        drawVideoFrame(step, 0);
+
+        // Update timeline for preview
+        document.querySelectorAll('.timeline-step').forEach((el, index) => {
+          el.classList.remove('active', 'completed');
+          if (index < previewIndex) el.classList.add('completed');
+          else if (index === previewIndex) el.classList.add('active');
+        });
+
+        // Update progress
+        updateProgress((previewIndex / videoData.steps.length) * 100, `Önizleme: Adım ${previewIndex + 1}/${videoData.steps.length}`);
+
+        // Stop previous audio
+        if (previewAudio) {
+          previewAudio.pause();
+          previewAudio = null;
+        }
+
+        // Play audio for preview
+        if (step.audioPath) {
+          previewAudio = new Audio(step.audioPath);
+          previewAudio.play().catch(console.log);
+        }
+
+        // Clear previous timeout
+        if (previewTimeout) {
+          clearTimeout(previewTimeout);
+        }
+
+        // Move to next step after duration + 1 second transition
+        previewTimeout = setTimeout(() => {
+          if (previewMode) {
+            previewIndex++;
+            startPreviewLoop();
+          }
+        }, Math.max((step.duration + 1) * 1000, 2000)); // 1 second transition
+      }
+
+      function stopPreview() {
+        previewMode = false;
+        previewBtn.innerHTML = '<i class="fas fa-eye me-2"></i>Önizleme';
+
+        // Clear timeout
+        if (previewTimeout) {
+          clearTimeout(previewTimeout);
+          previewTimeout = null;
+        }
+
+        // Stop audio
+        if (previewAudio) {
+          previewAudio.pause();
+          previewAudio = null;
+        }
+
+        // Reset to welcome screen
+        drawWelcomeScreen();
+        updateProgress(0, 'Hazırlanıyor');
+
+        // Reset timeline
+        document.querySelectorAll('.timeline-step').forEach(el => {
+          el.classList.remove('active', 'completed');
+        });
+      }
+
+      // Update preview button click handler
+      previewBtn.addEventListener('click', () => {
+        if (previewMode) {
+          stopPreview();
+        } else {
+          previewVideo();
+        }
+      });
+
+            async function preloadAudioDurations() {
+        console.log('Ses dosyası süreleri yükleniyor...');
+
+        for (let i = 0; i < videoData.steps.length; i++) {
+          const step = videoData.steps[i];
+
+          if (step.audioPath) {
+            try {
+              const audioDuration = await getAudioDuration(step.audioPath);
+              // Ses süresi baz alınıyor, resim varsa +2 saniye ekleniyor
+              let finalDuration = audioDuration;
+              if (step.codeImage) {
+                finalDuration += 2; // Resim varsa +2 saniye
+              }
+
+              adjustedStepDurations[i] = finalDuration;
+              console.log(`Adım ${i + 1}: Ses ${audioDuration.toFixed(1)}s${step.codeImage ? ' + Resim 2s' : ''} = ${finalDuration.toFixed(1)}s`);
+            } catch (error) {
+              console.log(`Adım ${i + 1} ses yüklenemedi, orijinal süre kullanılıyor:`, error);
+              // Ses yüklenemezse orijinal süre + resim varsa +2 saniye
+              let fallbackDuration = step.duration;
+              if (step.codeImage) {
+                fallbackDuration += 2;
+              }
+              adjustedStepDurations[i] = fallbackDuration;
+            }
+          } else {
+            // Ses yoksa orijinal süre + resim varsa +2 saniye
+            let fallbackDuration = step.duration;
+            if (step.codeImage) {
+              fallbackDuration += 2;
+            }
+            adjustedStepDurations[i] = fallbackDuration;
+          }
+        }
+
+        audioDurationsLoaded = true;
+        console.log('Tüm ses süreleri yüklendi:', adjustedStepDurations);
+
+        // Update UI with new durations
+        updateTotalDuration();
+      }
+
+      async function preloadImages() {
+        console.log('Resimler önceden yükleniyor...');
+
+        for (let i = 0; i < videoData.steps.length; i++) {
+          const step = videoData.steps[i];
+
+          if (step.codeImage && !imageCache[step.codeImage]) {
+            try {
+              await loadImageToCache(step.codeImage);
+              console.log(`Adım ${i + 1} resmi yüklendi`);
+            } catch (error) {
+              console.log(`Adım ${i + 1} resmi yüklenemedi:`, error);
+            }
+          }
+        }
+
+        console.log('Tüm resimler yüklendi');
+      }
+
+      function loadImageToCache(imagePath) {
+        return new Promise((resolve, reject) => {
+          if (imageCache[imagePath]) {
+            resolve(imageCache[imagePath]);
+            return;
+          }
+
+          const img = new Image();
+          img.onload = () => {
+            imageCache[imagePath] = img;
+            resolve(img);
+          };
+          img.onerror = () => {
+            reject(new Error('Image loading failed'));
+          };
+          img.src = imagePath;
+        });
+      }
+
+      function getAudioDuration(audioPath) {
+        return new Promise((resolve, reject) => {
+          const audio = new Audio();
+
+          audio.addEventListener('loadedmetadata', () => {
+            resolve(audio.duration);
+          });
+
+          audio.addEventListener('error', () => {
+            reject(new Error('Audio loading failed'));
+          });
+
+          audio.src = audioPath;
+        });
+      }
+
+      function updateTotalDuration() {
+        const totalDuration = Object.values(adjustedStepDurations).reduce((sum, duration) => sum + duration, 0);
+        const minutes = Math.floor(totalDuration / 60);
+        const seconds = Math.floor(totalDuration % 60);
+
+        // Update the duration display if exists
+        const durationElement = document.querySelector('#totalDuration');
+        if (durationElement) {
+          durationElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }
+      }
+
+      function downloadVideo() {
+        // This will be handled by the MediaRecorder onstop event
+      }
+    </script>
+  </body>
+</html>

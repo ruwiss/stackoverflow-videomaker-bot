@@ -425,6 +425,47 @@
                   .join("");
 
                 document.querySelector(".result-section").style.display = "block";
+
+                // Video oluştur butonu ekle
+                setTimeout(() => {
+                  const createVideoBtn = document.createElement("button");
+                  createVideoBtn.className = "btn btn-success btn-lg w-100 mt-3";
+                  createVideoBtn.innerHTML = '<i class="fas fa-video me-2"></i>Video Oluştur';
+                  createVideoBtn.onclick = async function () {
+                    // Loading göster
+                    this.disabled = true;
+                    this.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Yönlendiriliyor...';
+
+                    try {
+                      // POST ile video verilerini gönder
+                      const response = await fetch(`/video-creator/${questionId}`, {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify(result.data),
+                      });
+
+                      if (response.ok) {
+                        // Response'u HTML olarak al ve sayfayı değiştir
+                        const html = await response.text();
+                        document.open();
+                        document.write(html);
+                        document.close();
+                      } else {
+                        throw new Error("Video oluşturma sayfasına yönlendirilemedi");
+                      }
+                    } catch (error) {
+                      alert("Hata: " + error.message);
+                      this.disabled = false;
+                      this.innerHTML = '<i class="fas fa-video me-2"></i>Video Oluştur';
+                    }
+                  };
+
+                  // Video steps'in sonuna ekle
+                  const stepsDiv = document.getElementById("videoSteps");
+                  stepsDiv.appendChild(createVideoBtn);
+                }, 1500);
               }, 1000);
             }
           };
