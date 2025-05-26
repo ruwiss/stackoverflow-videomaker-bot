@@ -95,6 +95,24 @@
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
         border: 1px solid #d0d7de;
       }
+
+      /* Audio player stilleri */
+      audio {
+        border-radius: 6px;
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+      }
+
+      audio::-webkit-media-controls-panel {
+        background-color: #f8f9fa;
+      }
+
+      .audio-container {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 12px;
+        border: 1px solid #dee2e6;
+      }
     </style>
   </head>
   <body>
@@ -126,6 +144,18 @@
             </div>
             <div class="card-body">
               <form id="generateForm">
+                <div class="mb-3">
+                  <label class="form-label"><i class="fas fa-microphone me-2"></i>Ses Karakteri</label>
+                  <select class="form-select" id="voiceSelect">
+                    <option value="brian">Brian (Özel Karakter)</option>
+                    <option value="voice1">Ses Karakteri 1</option>
+                    <option value="voice2">Ses Karakteri 2</option>
+                    <option value="voice3">Ses Karakteri 3</option>
+                    <option value="voice4">Ses Karakteri 4</option>
+                    <option value="voice5">Ses Karakteri 5</option>
+                  </select>
+                  <div class="form-text">Seslendirme için kullanılacak AI ses karakteri</div>
+                </div>
                 <button type="submit" class="btn btn-success w-100 fw-medium"><i class="fas fa-magic me-2"></i>Video İçeriği Oluştur</button>
               </form>
             </div>
@@ -239,7 +269,7 @@
         const progressSteps = document.getElementById("progressSteps");
 
         // Progress adımları
-        const steps = ["AI ile içerik oluşturuluyor...", "Kod blokları analiz ediliyor...", "Süre hesaplamaları yapılıyor...", "Video içeriği hazırlanıyor...", "Kod resimleri oluşturuluyor...", "Thumbnail oluşturuluyor..."];
+        const steps = ["AI ile içerik oluşturuluyor...", "Kod blokları analiz ediliyor...", "Süre hesaplamaları yapılıyor...", "Video içeriği hazırlanıyor...", "Kod resimleri oluşturuluyor...", "Seslendirme oluşturuluyor...", "Thumbnail oluşturuluyor..."];
 
         // Progress güncelleyici fonksiyon
         function updateProgress(stepIndex, progress, customMessage = null) {
@@ -273,7 +303,8 @@
 
         try {
           // Server-Sent Events ile progress takibi
-          const eventSource = new EventSource(`/generate-video-content-stream/${questionId}`);
+          const selectedVoice = document.getElementById("voiceSelect").value;
+          const eventSource = new EventSource(`/generate-video-content-stream/${questionId}?voice=${selectedVoice}`);
 
           eventSource.onmessage = function (event) {
             const data = JSON.parse(event.data);
@@ -323,15 +354,48 @@
                 const stepsDiv = document.getElementById("videoSteps");
                 stepsDiv.innerHTML = result.data.steps
                   .map((step, index) => {
+                    const isOutro = step.isOutro;
+                    const stepTitle = isOutro ? "Outro" : `Step ${index + 1}`;
+                    const stepIcon = isOutro ? "fas fa-flag-checkered" : "fas fa-play-circle";
+                    const cardClass = isOutro ? "step-card card mb-3 border-success" : "step-card card mb-3";
+
                     let stepHtml = `
-                      <div class="step-card card mb-3">
+                      <div class="${cardClass}">
                         <div class="card-body">
                           <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="text-primary fw-bold mb-0"><i class="fas fa-play-circle me-2"></i>Step ${index + 1}</h6>
+                            <h6 class="text-primary fw-bold mb-0"><i class="${stepIcon} me-2"></i>${stepTitle}</h6>
                             <span class="badge bg-info"><i class="fas fa-clock me-1"></i>${step.duration || 0}s</span>
                           </div>
                           <div class="step-text">${step.text}</div>
                     `;
+
+                    // Audio player ekle (sadece ses dosyası varsa)
+                    if (step.audioPath) {
+                      stepHtml += `
+                          <div class="mt-3">
+                            <div class="audio-container">
+                              <div class="d-flex align-items-center">
+                                <i class="fas fa-volume-up text-primary me-2"></i>
+                                <span class="text-muted me-2">Seslendirme:</span>
+                                <audio controls class="flex-grow-1" preload="metadata">
+                                  <source src="${step.audioPath}" type="audio/mpeg">
+                                  Tarayıcınız audio elementini desteklemiyor.
+                                </audio>
+                              </div>
+                            </div>
+                          </div>
+                      `;
+                    } else {
+                      // TTS yoksa bilgi mesajı göster
+                      stepHtml += `
+                          <div class="mt-3">
+                            <div class="alert alert-info py-2 px-3 mb-0">
+                              <i class="fas fa-info-circle me-2"></i>
+                              <small>Seslendirme şu anda kullanılamıyor (API limiti)</small>
+                            </div>
+                          </div>
+                      `;
+                    }
 
                     if (step.codeImage) {
                       stepHtml += `

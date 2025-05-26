@@ -1032,6 +1032,7 @@ app.post("/generate-video-content", async (req, res) => {
 // Progress tracking için yeni endpoint
 app.get("/generate-video-content-stream/:questionId", async (req, res) => {
   const questionId = req.params.questionId;
+  const voiceCharacter = req.query.voice || "rachel"; // URL parametresinden ses karakterini al
 
   // SSE headers
   res.writeHead(200, {
@@ -1121,6 +1122,8 @@ app.get("/generate-video-content-stream/:questionId", async (req, res) => {
           }
         };
         \`\`\`
+
+        OUTRO: [Short closing statement about the solution, ask viewers to like and subscribe - maximum 1 sentence]
         `;
 
     const result = await model.generateContent(prompt);
@@ -1140,21 +1143,26 @@ app.get("/generate-video-content-stream/:questionId", async (req, res) => {
     // Adım 5: Kod resimleri oluşturma
     const processedSteps = await processCodeBlocksWithProgress(videoContent.steps, questionId, sendProgress);
 
-    // Adım 6: Thumbnail oluşturma
-    sendProgress(5, 95, "Thumbnail oluşturuluyor...");
+    // Adım 6: TTS seslendirme oluşturma
+    sendProgress(5, 85, "Seslendirme oluşturuluyor...");
+    const voiceId = VOICE_CHARACTERS[voiceCharacter] || VOICE_CHARACTERS.brian; // Seçilen ses karakterini kullan (varsayılan Brian)
+    const stepsWithTTS = await processStepsWithTTS(processedSteps, questionId, voiceId, sendProgress);
+
+    // Adım 7: Thumbnail oluşturma
+    sendProgress(6, 95, "Thumbnail oluşturuluyor...");
     const thumbnailPath = await createThumbnail(videoContent.title, question.category, questionId);
 
     // Toplam süreyi hesapla
-    const totalDuration = processedSteps.reduce((total, step) => total + (step.duration || 0), 0);
+    const totalDuration = stepsWithTTS.reduce((total, step) => total + (step.duration || 0), 0);
 
     // Tamamlandı
-    sendProgress(6, 100, "Tamamlandı!", {
+    sendProgress(7, 100, "Tamamlandı!", {
       success: true,
       data: {
         title: videoContent.title,
         description: videoContent.description,
         keywords: videoContent.keywords,
-        steps: processedSteps,
+        steps: stepsWithTTS,
         thumbnail: thumbnailPath,
         estimatedDuration: totalDuration,
         estimatedDurationFormatted: `${Math.floor(totalDuration / 60)}:${(totalDuration % 60).toString().padStart(2, "0")}`,
@@ -1205,6 +1213,19 @@ function parseGeminiResponse(text) {
     } else if (line.startsWith("STEPS:")) {
       currentSection = "steps";
       console.log("Started steps section");
+    } else if (line.startsWith("OUTRO:")) {
+      // Önceki adımı kaydet
+      if (currentStep) {
+        const hasCode = currentStep.includes("CODE_BLOCK:");
+        steps.push({ text: currentStep, hasCode: hasCode });
+        console.log("Added step:", { text: currentStep, hasCode: hasCode });
+        currentStep = "";
+      }
+
+      // OUTRO adımını ekle
+      const outroText = line.replace("OUTRO:", "").trim();
+      steps.push({ text: outroText, hasCode: false, isOutro: true });
+      console.log("Added outro:", outroText);
     } else if (currentSection === "steps") {
       // Adım numarası ile başlıyorsa
       if (line.match(/^\d+\./)) {
@@ -1397,6 +1418,7 @@ async function processCodeBlocksWithProgress(steps, questionId, sendProgress) {
 // Static dosyalar için route
 app.use("/code-images", express.static(path.join(__dirname, "public", "code-images")));
 app.use("/thumbnails", express.static(path.join(__dirname, "public", "thumbnails")));
+app.use("/audio", express.static(path.join(__dirname, "public", "audio")));
 
 // Thumbnail oluşturma fonksiyonu
 async function createThumbnail(title, category, questionId, variant = null) {
@@ -2057,4 +2079,169 @@ function drawOrganicShapes(ctx, width, height, colorPalette) {
     ctx.closePath();
     ctx.fill();
   }
+}
+
+// ElevenLabs TTS entegrasyonu
+const ELEVENLABS_API_KEY = "sk_eb003409e135b985acb687a3c21b8eb891a490f9ae97084f";
+const ELEVENLABS_API_URL = "https://api.elevenlabs.io/v1";
+
+// Kaliteli ses karakterleri (ElevenLabs'dan seçilmiş sesler)
+const VOICE_CHARACTERS = {
+  brian: "nPczCjzI2devNBz1zQrb", // Erkek, Brian (özel)
+  voice1: "eyuCA3LWMylRajljTeOo", // Ses 1
+  voice2: "dMyQqiVXTU80dDl2eNK8", // Ses 2
+  voice3: "YCkxryRNUmfOIgIS2y61", // Ses 3
+  voice4: "h061KGyOtpLYDxcoi8E3", // Ses 4
+  voice5: "kpiE5HkOcaC7zMRavpg1", // Ses 5
+};
+
+// TTS için metin temizleme fonksiyonu
+function cleanTextForTTS(text) {
+  const originalText = text;
+
+  const cleanedText = text
+    .replace(/CODE_BLOCK:[\s\S]*?```[\s\S]*?```/g, "") // Kod bloklarını kaldır
+    .replace(/```[\s\S]*?```/g, "") // Markdown kod bloklarını kaldır
+    .replace(/`([^`]+)`/g, (match, content) => {
+      // Tek tırnak içindeki içeriği koru, sadece tırnakları kaldır
+      return content;
+    })
+    .replace(/\*\*(.*?)\*\*/g, "$1") // Bold markdown
+    .replace(/\*(.*?)\*/g, "$1") // Italic markdown
+    .replace(/\[.*?\]/g, "") // Köşeli parantezleri kaldır
+    .replace(/\(.*?\)/g, "") // Normal parantezleri kaldır
+    .replace(/[#*_]/g, "") // Markdown karakterleri
+    .replace(/\s+/g, " ") // Çoklu boşlukları tek boşluğa çevir
+    .replace(/\n+/g, ". ") // Satır sonlarını nokta ile değiştir
+    .trim();
+
+  console.log("TTS Metin Temizleme:");
+  console.log("Orijinal:", originalText.substring(0, 150) + "...");
+  console.log("Temizlenmiş:", cleanedText.substring(0, 150) + "...");
+
+  return cleanedText;
+}
+
+// ElevenLabs TTS fonksiyonu
+async function generateTTS(text, voiceId = "21m00Tcm4TlvDq8ikWAM", questionId, stepIndex) {
+  try {
+    const cleanText = cleanTextForTTS(text);
+
+    if (!cleanText || cleanText.length < 3) {
+      console.log("Metin çok kısa, TTS atlanıyor:", cleanText);
+      return null;
+    }
+
+    console.log(`TTS oluşturuluyor - Step ${stepIndex}: "${cleanText.substring(0, 50)}..."`);
+    console.log(`Voice ID: ${voiceId}`);
+    console.log(`API Key: ${ELEVENLABS_API_KEY.substring(0, 10)}...`);
+
+    const response = await axios.post(
+      `${ELEVENLABS_API_URL}/text-to-speech/${voiceId}`,
+      {
+        text: cleanText,
+        model_id: "eleven_multilingual_v2",
+        voice_settings: {
+          stability: 0.5,
+          similarity_boost: 0.75,
+          style: 0.0,
+          use_speaker_boost: true,
+        },
+      },
+      {
+        headers: {
+          Accept: "audio/mpeg",
+          "Content-Type": "application/json",
+          "xi-api-key": ELEVENLABS_API_KEY,
+        },
+        responseType: "arraybuffer",
+      }
+    );
+
+    // Audio dosyasını kaydet
+    const audioDir = path.join(__dirname, "public", "audio");
+    if (!fsSync.existsSync(audioDir)) {
+      fsSync.mkdirSync(audioDir, { recursive: true });
+    }
+
+    const fileName = `audio_${questionId}_step_${stepIndex}_${Date.now()}.mp3`;
+    const filePath = path.join(audioDir, fileName);
+
+    fsSync.writeFileSync(filePath, response.data);
+
+    console.log(`TTS başarıyla oluşturuldu: ${fileName}`);
+    return `/audio/${fileName}`;
+  } catch (error) {
+    console.error("TTS oluşturma hatası:");
+    console.error("Error message:", error.message);
+    console.error("Error response:", error.response?.data);
+    console.error("Error status:", error.response?.status);
+    console.error("Error headers:", error.response?.headers);
+
+    if (error.response?.status === 401) {
+      console.error("API Key hatası - Lütfen ElevenLabs API key'ini kontrol edin");
+    } else if (error.response?.status === 429) {
+      console.error("Rate limit aşıldı - Biraz bekleyip tekrar deneyin");
+    } else if (error.response?.status === 400) {
+      // Voice limit reached veya diğer 400 hataları
+      const errorData = error.response?.data;
+      if (errorData && typeof errorData === "object") {
+        try {
+          const errorStr = Buffer.isBuffer(errorData) ? errorData.toString() : JSON.stringify(errorData);
+          console.error("API Hatası (400):", errorStr);
+          if (errorStr.includes("voice_limit_reached")) {
+            console.error("Ses limiti aşıldı - TTS geçici olarak devre dışı");
+          }
+        } catch (e) {
+          console.error("API Hatası (400): Detay okunamadı");
+        }
+      }
+    }
+
+    return null;
+  }
+}
+
+// Adımları TTS ile işleme fonksiyonu
+async function processStepsWithTTS(steps, questionId, voiceId, sendProgress) {
+  const processedSteps = [];
+  let ttsEnabled = true; // TTS durumunu takip et
+
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i];
+
+    // Progress güncelle
+    const ttsProgress = 85 + (i / steps.length) * 10; // %85-95 arası TTS için
+
+    if (ttsEnabled) {
+      sendProgress(5, ttsProgress, `Seslendirme oluşturuluyor... (${i + 1}/${steps.length})`);
+    } else {
+      sendProgress(5, ttsProgress, `İçerik hazırlanıyor... (${i + 1}/${steps.length})`);
+    }
+
+    let audioPath = null;
+
+    // TTS oluştur (sadece etkinse)
+    if (ttsEnabled) {
+      audioPath = await generateTTS(step.text, voiceId, questionId, i);
+
+      // İlk TTS hatası durumunda TTS'i devre dışı bırak
+      if (audioPath === null && i === 0) {
+        console.log("TTS devre dışı bırakılıyor - API limiti aşılmış olabilir");
+        ttsEnabled = false;
+      }
+    }
+
+    processedSteps.push({
+      ...step,
+      audioPath: audioPath,
+    });
+
+    // API rate limit için kısa bekleme (sadece TTS etkinse)
+    if (ttsEnabled) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+  }
+
+  return processedSteps;
 }
