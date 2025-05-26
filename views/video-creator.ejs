@@ -392,9 +392,16 @@
         document.getElementById('musicVolume').addEventListener('input', (e) => {
           musicVolume = e.target.value / 100;
           document.getElementById('musicVolumeValue').textContent = e.target.value;
+
+          // Gerçek zamanlı ses seviyesi güncellemesi
+          if (backgroundMusic) {
+            backgroundMusic.volume = musicVolume;
+          }
           if (backgroundMusicGain) {
             backgroundMusicGain.gain.value = musicVolume;
           }
+
+          console.log('Müzik ses seviyesi güncellendi:', musicVolume);
         });
       }
 
@@ -423,28 +430,82 @@
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
             audioDestination = audioContext.createMediaStreamDestination();
 
-                        // Arkaplan müziği başlat
+                                    // Arkaplan müziği başlat
             if (includeBackgroundMusic && backgroundMusic) {
               try {
-                // Yeni bir Audio element oluştur (MediaElementSource için)
-                const musicForRecording = new Audio(backgroundMusic.src);
-                musicForRecording.loop = true;
-                musicForRecording.volume = musicVolume;
+                console.log('Video kayıt için müzik hazırlanıyor...');
 
-                // AudioContext'e müziği bağla
-                const musicSource = audioContext.createMediaElementSource(musicForRecording);
+                // AudioBuffer kullanarak müzik yükle (daha güvenilir)
+                const response = await fetch(backgroundMusic.src);
+                const arrayBuffer = await response.arrayBuffer();
+                const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+
+                // BufferSource oluştur
+                const musicSource = audioContext.createBufferSource();
+                musicSource.buffer = audioBuffer;
+                musicSource.loop = true;
+
+                // Gain node oluştur
                 backgroundMusicGain = audioContext.createGain();
                 backgroundMusicGain.gain.value = musicVolume;
 
+                // Bağlantıları yap
                 musicSource.connect(backgroundMusicGain);
                 backgroundMusicGain.connect(audioDestination);
 
                 // Müziği başlat
-                musicForRecording.currentTime = 0;
-                musicForRecording.play();
-                console.log('Arkaplan müziği başlatıldı');
+                musicSource.start(0);
+                console.log('✓ Video kayıt müziği başarıyla başlatıldı (AudioBuffer), ses seviyesi:', musicVolume);
+
+                // Cleanup için referansı sakla
+                window.currentMusicSource = musicSource;
+
               } catch (error) {
-                console.error('Arkaplan müziği başlatılamadı:', error);
+                console.error('✗ AudioBuffer müzik başlatılamadı, MediaElement deneniyor:', error);
+
+                // Fallback: MediaElementSource
+                try {
+                  const musicForRecording = new Audio();
+                  musicForRecording.crossOrigin = 'anonymous';
+                  musicForRecording.src = backgroundMusic.src;
+                  musicForRecording.loop = true;
+                  musicForRecording.volume = musicVolume;
+                  musicForRecording.preload = 'auto';
+
+                  let musicStarted = false;
+
+                  // AudioContext'e müziği bağla
+                  const musicSource = audioContext.createMediaElementSource(musicForRecording);
+                  backgroundMusicGain = audioContext.createGain();
+                  backgroundMusicGain.gain.value = musicVolume;
+
+                  musicSource.connect(backgroundMusicGain);
+                  backgroundMusicGain.connect(audioDestination);
+
+                  // Müziğin yüklenmesini bekle ve başlat
+                  const startMusic = async () => {
+                    if (musicStarted) return;
+                    musicStarted = true;
+
+                    try {
+                      musicForRecording.currentTime = 0;
+                      await musicForRecording.play();
+                      console.log('✓ Fallback müzik başlatıldı, ses seviyesi:', musicVolume);
+                    } catch (playError) {
+                      console.error('✗ Fallback müzik başlatma hatası:', playError);
+                      musicStarted = false;
+                    }
+                  };
+
+                  musicForRecording.addEventListener('canplaythrough', startMusic);
+                  musicForRecording.load();
+
+                  // Cleanup için referansı sakla
+                  window.currentMusicElement = musicForRecording;
+
+                } catch (fallbackError) {
+                  console.error('✗ Fallback müzik de başlatılamadı:', fallbackError);
+                }
               }
             }
           }
@@ -491,9 +552,17 @@
             updateProgress(100, 'Tamamlandı!');
 
             // Cleanup audio
-            if (backgroundMusic) {
-              backgroundMusic.pause();
-              backgroundMusic = null;
+            if (window.currentMusicSource) {
+              window.currentMusicSource.stop();
+              window.currentMusicSource = null;
+            }
+            if (window.currentMusicElement) {
+              window.currentMusicElement.pause();
+              window.currentMusicElement = null;
+            }
+            if (backgroundMusicGain) {
+              backgroundMusicGain.disconnect();
+              backgroundMusicGain = null;
             }
             if (audioContext) {
               audioContext.close();
@@ -527,6 +596,18 @@
           startBtn.innerHTML = '<i class="fas fa-play me-2"></i>Video Oluşturmaya Başla';
 
           // Cleanup audio on error
+          if (window.currentMusicSource) {
+            window.currentMusicSource.stop();
+            window.currentMusicSource = null;
+          }
+          if (window.currentMusicElement) {
+            window.currentMusicElement.pause();
+            window.currentMusicElement = null;
+          }
+          if (backgroundMusicGain) {
+            backgroundMusicGain.disconnect();
+            backgroundMusicGain = null;
+          }
           if (audioContext) {
             audioContext.close();
             audioContext = null;
@@ -930,7 +1011,7 @@
             backgroundMusic.currentTime = 0;
             backgroundMusic.volume = musicVolume;
             backgroundMusic.play();
-            console.log('Önizleme için arkaplan müziği başlatıldı');
+            console.log('Önizleme için arkaplan müziği başlatıldı, ses seviyesi:', musicVolume);
           } catch (error) {
             console.error('Önizleme müziği başlatılamadı:', error);
           }
@@ -1163,32 +1244,55 @@
           console.log('Seçilen müzik:', randomMusic);
           console.log('Müzik yolu:', musicPath);
 
-          backgroundMusic = new Audio(musicPath);
+          // Test: Müzik dosyasının erişilebilir olup olmadığını kontrol et
+          try {
+            const response = await fetch(musicPath, { method: 'HEAD' });
+            if (!response.ok) {
+              throw new Error(`Müzik dosyası bulunamadı: ${response.status}`);
+            }
+            console.log('Müzik dosyası erişilebilir');
+          } catch (fetchError) {
+            console.error('Müzik dosyası erişim hatası:', fetchError);
+            throw fetchError;
+          }
+
+          backgroundMusic = new Audio();
+          backgroundMusic.crossOrigin = 'anonymous';
+          backgroundMusic.preload = 'auto';
           backgroundMusic.loop = true;
           backgroundMusic.volume = musicVolume;
 
           // Müziğin yüklenmesini bekle
           await new Promise((resolve, reject) => {
             const timeout = setTimeout(() => {
-              reject(new Error('Müzik yükleme timeout'));
-            }, 10000); // 10 saniye timeout
+              reject(new Error('Müzik yükleme timeout (15s)'));
+            }, 15000); // 15 saniye timeout
 
-            backgroundMusic.addEventListener('canplaythrough', () => {
+            const cleanup = () => {
               clearTimeout(timeout);
+              backgroundMusic.removeEventListener('canplaythrough', onSuccess);
+              backgroundMusic.removeEventListener('loadeddata', onSuccess);
+              backgroundMusic.removeEventListener('error', onError);
+            };
+
+            const onSuccess = () => {
+              cleanup();
+              console.log('Müzik başarıyla yüklendi');
               resolve();
-            });
+            };
 
-            backgroundMusic.addEventListener('loadeddata', () => {
-              clearTimeout(timeout);
-              resolve();
-            });
+            const onError = (e) => {
+              cleanup();
+              console.error('Müzik yükleme hatası:', e);
+              reject(new Error(`Müzik yükleme hatası: ${e.message || 'Bilinmeyen hata'}`));
+            };
 
-            backgroundMusic.addEventListener('error', (e) => {
-              clearTimeout(timeout);
-              reject(e);
-            });
+            backgroundMusic.addEventListener('canplaythrough', onSuccess);
+            backgroundMusic.addEventListener('loadeddata', onSuccess);
+            backgroundMusic.addEventListener('error', onError);
 
-            // Yüklemeyi başlat
+            // Müzik dosyasını yükle
+            backgroundMusic.src = musicPath;
             backgroundMusic.load();
           });
 
@@ -1196,6 +1300,15 @@
         } catch (error) {
           console.error('Arkaplan müziği yüklenirken hata:', error);
           backgroundMusic = null;
+
+          // Kullanıcıya hata mesajı göster
+          const errorMsg = `Müzik yükleme hatası: ${error.message}`;
+          console.warn(errorMsg);
+
+          // UI'da hata göster (opsiyonel)
+          if (document.getElementById('musicError')) {
+            document.getElementById('musicError').textContent = errorMsg;
+          }
         }
       }
 
@@ -1204,17 +1317,32 @@
         const testBtn = document.createElement('button');
         testBtn.className = 'btn btn-outline-light w-100 mt-2';
         testBtn.innerHTML = '<i class="fas fa-music me-2"></i>Müzik Test';
-        testBtn.onclick = () => {
+        testBtn.onclick = async () => {
           if (backgroundMusic) {
-            if (backgroundMusic.paused) {
-              backgroundMusic.play();
-              testBtn.innerHTML = '<i class="fas fa-pause me-2"></i>Müzik Durdur';
-            } else {
-              backgroundMusic.pause();
-              testBtn.innerHTML = '<i class="fas fa-music me-2"></i>Müzik Test';
+            try {
+              if (backgroundMusic.paused) {
+                // Ses seviyesini güncelle
+                backgroundMusic.volume = musicVolume;
+                await backgroundMusic.play();
+                testBtn.innerHTML = '<i class="fas fa-pause me-2"></i>Müzik Durdur';
+                console.log('Müzik test başlatıldı, ses seviyesi:', musicVolume);
+              } else {
+                backgroundMusic.pause();
+                testBtn.innerHTML = '<i class="fas fa-music me-2"></i>Müzik Test';
+                console.log('Müzik test durduruldu');
+              }
+            } catch (error) {
+              console.error('Müzik test hatası:', error);
+              alert(`Müzik çalınamadı: ${error.message}`);
             }
           } else {
-            alert('Müzik yüklenmedi!');
+            console.log('Müzik yüklenmedi, yeniden yüklemeye çalışılıyor...');
+            await loadBackgroundMusic();
+            if (backgroundMusic) {
+              alert('Müzik yüklendi! Tekrar test edin.');
+            } else {
+              alert('Müzik yüklenemedi! Console\'u kontrol edin.');
+            }
           }
         };
 
