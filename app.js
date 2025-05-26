@@ -9,6 +9,7 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { exec } = require("child_process");
 const { promisify } = require("util");
 const { createCanvas, loadImage, registerFont } = require("canvas");
+const textToSpeech = require("@google-cloud/text-to-speech");
 
 const app = express();
 const parser = new RSSParser();
@@ -1322,8 +1323,19 @@ async function processCodeBlocksWithProgress(steps, questionId, sendProgress) {
         if (codeMatch) {
           let code = codeMatch[1];
 
-          // Kodu formatla
-          code = formatCode(code);
+          // Sadece baştaki ve sondaki boş satırları sil, satır içi boşluklara dokunma
+          let codeLines = code.split("\n");
+          while (codeLines.length > 0 && codeLines[0].trim() === "") codeLines.shift();
+          while (codeLines.length > 0 && codeLines[codeLines.length - 1].trim() === "") codeLines.pop();
+          code = codeLines.join("\n");
+
+          // Eğer kodun tamamı tek satırsa veya tüm satırlar aynı seviyede ise formatCode uygula, aksi halde olduğu gibi bırak
+          const allLines = code.split("\n");
+          const allIndents = allLines.map((l) => l.match(/^\s*/)[0].length);
+          const uniqueIndents = new Set(allIndents);
+          if (allLines.length === 1 || uniqueIndents.size === 1) {
+            code = formatCode(code);
+          }
 
           console.log(`Formatted code: ${code}`);
 
@@ -2122,82 +2134,78 @@ function cleanTextForTTS(text) {
   return cleanedText;
 }
 
-// ElevenLabs TTS fonksiyonu
-async function generateTTS(text, voiceId = "21m00Tcm4TlvDq8ikWAM", questionId, stepIndex) {
+// Google Cloud TTS için kaliteli İngilizce ses karakterleri
+const GOOGLE_TTS_VOICES = {
+  "en-US-Chirp3-HD-Aoede": { name: "en-US-Chirp3-HD-Aoede", label: "Chirp3 HD - Aoede (Female)", gender: "FEMALE" },
+  "en-US-Chirp3-HD-Puck": { name: "en-US-Chirp3-HD-Puck", label: "Chirp3 HD - Puck (Male)", gender: "MALE" },
+  "en-US-Chirp3-HD-Charon": { name: "en-US-Chirp3-HD-Charon", label: "Chirp3 HD - Charon (Male)", gender: "MALE" },
+  "en-US-Chirp3-HD-Kore": { name: "en-US-Chirp3-HD-Kore", label: "Chirp3 HD - Kore (Female)", gender: "FEMALE" },
+  "en-US-Chirp3-HD-Fenrir": { name: "en-US-Chirp3-HD-Fenrir", label: "Chirp3 HD - Fenrir (Male)", gender: "MALE" },
+  "en-US-Chirp3-HD-Leda": { name: "en-US-Chirp3-HD-Leda", label: "Chirp3 HD - Leda (Female)", gender: "FEMALE" },
+  "en-US-Chirp3-HD-Orus": { name: "en-US-Chirp3-HD-Orus", label: "Chirp3 HD - Orus (Male)", gender: "MALE" },
+  "en-US-Chirp3-HD-Zephyr": { name: "en-US-Chirp3-HD-Zephyr", label: "Chirp3 HD - Zephyr (Female)", gender: "FEMALE" },
+  "en-US-Neural2-J": { name: "en-US-Neural2-J", label: "English (US) - Neural2 J (Male)", gender: "MALE" },
+  "en-US-Neural2-I": { name: "en-US-Neural2-I", label: "English (US) - Neural2 I (Female)", gender: "FEMALE" },
+  "en-US-Wavenet-D": { name: "en-US-Wavenet-D", label: "English (US) - WaveNet D (Male)", gender: "MALE" },
+  "en-US-Wavenet-F": { name: "en-US-Wavenet-F", label: "English (US) - WaveNet F (Female)", gender: "FEMALE" },
+  "en-GB-Neural2-A": { name: "en-GB-Neural2-A", label: "English (UK) - Neural2 A (Male)", gender: "MALE" },
+  "en-GB-Neural2-B": { name: "en-GB-Neural2-B", label: "English (UK) - Neural2 B (Female)", gender: "FEMALE" },
+  "en-AU-Neural2-A": { name: "en-AU-Neural2-A", label: "English (AU) - Neural2 A (Male)", gender: "MALE" },
+  "en-AU-Neural2-B": { name: "en-AU-Neural2-B", label: "English (AU) - Neural2 B (Female)", gender: "FEMALE" },
+};
+
+// Google Cloud TTS fonksiyonu (İngilizce, en iyi sesler)
+async function generateTTS(text, voiceId = "en-US-Neural2-J", questionId, stepIndex) {
   try {
     const cleanText = cleanTextForTTS(text);
-
     if (!cleanText || cleanText.length < 3) {
       console.log("Metin çok kısa, TTS atlanıyor:", cleanText);
       return null;
     }
 
-    console.log(`TTS oluşturuluyor - Step ${stepIndex}: "${cleanText.substring(0, 50)}..."`);
-    console.log(`Voice ID: ${voiceId}`);
-    console.log(`API Key: ${ELEVENLABS_API_KEY.substring(0, 10)}...`);
+    // Voice seçimi
+    const voice = GOOGLE_TTS_VOICES[voiceId] || GOOGLE_TTS_VOICES["en-US-Chirp3-HD-Aoede"];
+    const languageCode = voice.name.split("-").slice(0, 2).join("-");
+    // Gender belirleme (artık doğrudan voice.gender)
+    let ssmlGender = voice.gender || "MALE";
 
-    const response = await axios.post(
-      `${ELEVENLABS_API_URL}/text-to-speech/${voiceId}`,
-      {
-        text: cleanText,
-        model_id: "eleven_multilingual_v2",
-        voice_settings: {
-          stability: 0.5,
-          similarity_boost: 0.75,
-          style: 0.0,
-          use_speaker_boost: true,
-        },
+    // Google Cloud TTS REST API endpoint
+    const url = `https://texttospeech.googleapis.com/v1/text:synthesize?key=${GOOGLE_TTS_API_KEY}`;
+    const requestBody = {
+      input: { text: cleanText },
+      voice: {
+        languageCode: languageCode,
+        name: voice.name,
+        ssmlGender: ssmlGender,
       },
-      {
-        headers: {
-          Accept: "audio/mpeg",
-          "Content-Type": "application/json",
-          "xi-api-key": ELEVENLABS_API_KEY,
-        },
-        responseType: "arraybuffer",
-      }
-    );
+      audioConfig: {
+        audioEncoding: "MP3",
+      },
+    };
+
+    const response = await axios.post(url, requestBody);
+    const audioContent = response.data.audioContent;
+    if (!audioContent) {
+      console.error("Google TTS: audioContent yok");
+      return null;
+    }
 
     // Audio dosyasını kaydet
     const audioDir = path.join(__dirname, "public", "audio");
     if (!fsSync.existsSync(audioDir)) {
       fsSync.mkdirSync(audioDir, { recursive: true });
     }
-
     const fileName = `audio_${questionId}_step_${stepIndex}_${Date.now()}.mp3`;
     const filePath = path.join(audioDir, fileName);
-
-    fsSync.writeFileSync(filePath, response.data);
-
+    fsSync.writeFileSync(filePath, Buffer.from(audioContent, "base64"));
     console.log(`TTS başarıyla oluşturuldu: ${fileName}`);
     return `/audio/${fileName}`;
   } catch (error) {
-    console.error("TTS oluşturma hatası:");
-    console.error("Error message:", error.message);
-    console.error("Error response:", error.response?.data);
-    console.error("Error status:", error.response?.status);
-    console.error("Error headers:", error.response?.headers);
-
-    if (error.response?.status === 401) {
-      console.error("API Key hatası - Lütfen ElevenLabs API key'ini kontrol edin");
-    } else if (error.response?.status === 429) {
-      console.error("Rate limit aşıldı - Biraz bekleyip tekrar deneyin");
-    } else if (error.response?.status === 400) {
-      // Voice limit reached veya diğer 400 hataları
-      const errorData = error.response?.data;
-      if (errorData && typeof errorData === "object") {
-        try {
-          const errorStr = Buffer.isBuffer(errorData) ? errorData.toString() : JSON.stringify(errorData);
-          console.error("API Hatası (400):", errorStr);
-          if (errorStr.includes("voice_limit_reached")) {
-            console.error("Ses limiti aşıldı - TTS geçici olarak devre dışı");
-          }
-        } catch (e) {
-          console.error("API Hatası (400): Detay okunamadı");
-        }
-      }
+    console.error("Google TTS oluşturma hatası:", error.message);
+    if (error.response) {
+      console.error("Status:", error.response.status);
+      console.error("Data:", error.response.data);
     }
-
     return null;
   }
 }
@@ -2245,3 +2253,5 @@ async function processStepsWithTTS(steps, questionId, voiceId, sendProgress) {
 
   return processedSteps;
 }
+
+const GOOGLE_TTS_API_KEY = "AIzaSyBehe_uZ7eJPJcKk9cUaDCm6lT8UlbJwCw";

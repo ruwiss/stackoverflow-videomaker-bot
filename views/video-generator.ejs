@@ -147,12 +147,22 @@
                 <div class="mb-3">
                   <label class="form-label"><i class="fas fa-microphone me-2"></i>Ses Karakteri</label>
                   <select class="form-select" id="voiceSelect">
-                    <option value="brian">Brian (Özel Karakter)</option>
-                    <option value="voice1">Ses Karakteri 1</option>
-                    <option value="voice2">Ses Karakteri 2</option>
-                    <option value="voice3">Ses Karakteri 3</option>
-                    <option value="voice4">Ses Karakteri 4</option>
-                    <option value="voice5">Ses Karakteri 5</option>
+                    <option value="en-US-Chirp3-HD-Aoede">Chirp3 HD - Aoede (Female)</option>
+                    <option value="en-US-Chirp3-HD-Puck">Chirp3 HD - Puck (Male)</option>
+                    <option value="en-US-Chirp3-HD-Charon">Chirp3 HD - Charon (Male)</option>
+                    <option value="en-US-Chirp3-HD-Kore">Chirp3 HD - Kore (Female)</option>
+                    <option value="en-US-Chirp3-HD-Fenrir">Chirp3 HD - Fenrir (Male)</option>
+                    <option value="en-US-Chirp3-HD-Leda">Chirp3 HD - Leda (Female)</option>
+                    <option value="en-US-Chirp3-HD-Orus">Chirp3 HD - Orus (Male)</option>
+                    <option value="en-US-Chirp3-HD-Zephyr">Chirp3 HD - Zephyr (Female)</option>
+                    <option value="en-US-Neural2-J">English (US) - Neural2 J (Male)</option>
+                    <option value="en-US-Neural2-I">English (US) - Neural2 I (Female)</option>
+                    <option value="en-US-Wavenet-D">English (US) - WaveNet D (Male)</option>
+                    <option value="en-US-Wavenet-F">English (US) - WaveNet F (Female)</option>
+                    <option value="en-GB-Neural2-A">English (UK) - Neural2 A (Male)</option>
+                    <option value="en-GB-Neural2-B">English (UK) - Neural2 B (Female)</option>
+                    <option value="en-AU-Neural2-A">English (AU) - Neural2 A (Male)</option>
+                    <option value="en-AU-Neural2-B">English (AU) - Neural2 B (Female)</option>
                   </select>
                   <div class="form-text">Seslendirme için kullanılacak AI ses karakteri</div>
                 </div>
@@ -361,13 +371,13 @@
 
                     let stepHtml = `
                       <div class="${cardClass}">
-                        <div class="card-body">
+                      <div class="card-body">
                           <div class="d-flex justify-content-between align-items-center mb-2">
                             <h6 class="text-primary fw-bold mb-0"><i class="${stepIcon} me-2"></i>${stepTitle}</h6>
                             <span class="badge bg-info"><i class="fas fa-clock me-1"></i>${step.duration || 0}s</span>
                           </div>
-                          <div class="step-text">${step.text}</div>
-                    `;
+                        <div class="step-text">${step.text}</div>
+                  `;
 
                     // Audio player ekle (sadece ses dosyası varsa)
                     if (step.audioPath) {
@@ -399,16 +409,16 @@
 
                     if (step.codeImage) {
                       stepHtml += `
-                          <div class="mt-3">
+                        <div class="mt-3">
                             <img src="${step.codeImage}" class="code-image" alt="Code Example" onerror="this.style.display='none'">
-                          </div>
-                      `;
+                        </div>
+                    `;
                     }
 
                     stepHtml += `
-                        </div>
                       </div>
-                    `;
+                    </div>
+                  `;
 
                     return stepHtml;
                   })
