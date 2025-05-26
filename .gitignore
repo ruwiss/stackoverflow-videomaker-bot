@@ -118,3 +118,6 @@ images/generated/
 
 # Keep code images for the app
 !public/code-images/
+
+# Music files
+public/musics/
