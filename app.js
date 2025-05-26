@@ -1464,6 +1464,7 @@ async function processCodeBlocksWithProgress(steps, questionId, sendProgress) {
 app.use("/code-images", express.static(path.join(__dirname, "public", "code-images")));
 app.use("/thumbnails", express.static(path.join(__dirname, "public", "thumbnails")));
 app.use("/audio", express.static(path.join(__dirname, "public", "audio")));
+app.use("/musics", express.static(path.join(__dirname, "public", "musics")));
 
 // Thumbnail oluşturma fonksiyonu
 async function createThumbnail(title, category, questionId, variant = null) {

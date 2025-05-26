@@ -204,9 +204,20 @@
                 </select>
               </div>
 
-              <div class="form-check">
+              <div class="form-check mb-3">
                 <input class="form-check-input" type="checkbox" id="includeAudio" checked />
                 <label class="form-check-label" for="includeAudio"> Ses Dahil Et </label>
+              </div>
+
+              <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" id="includeBackgroundMusic" checked />
+                <label class="form-check-label" for="includeBackgroundMusic"> Arkaplan Müziği </label>
+              </div>
+
+              <div class="mb-3" id="musicVolumeContainer">
+                <label class="form-label">Müzik Ses Seviyesi:</label>
+                <input type="range" class="form-range" id="musicVolume" min="0" max="100" value="2" />
+                <small class="text-light">%<span id="musicVolumeValue">2</span></small>
               </div>
             </div>
           </div>
@@ -230,6 +241,10 @@
       let fps = 30;
       let quality = 'high';
       let includeAudio = true;
+      let includeBackgroundMusic = true;
+      let musicVolume = 0.02;
+      let backgroundMusic = null;
+      let backgroundMusicGain = null;
 
       // Video state
       let isRecording = false;
@@ -368,6 +383,19 @@
         document.getElementById('includeAudio').addEventListener('change', (e) => {
           includeAudio = e.target.checked;
         });
+
+        document.getElementById('includeBackgroundMusic').addEventListener('change', (e) => {
+          includeBackgroundMusic = e.target.checked;
+          document.getElementById('musicVolumeContainer').style.display = e.target.checked ? 'block' : 'none';
+        });
+
+        document.getElementById('musicVolume').addEventListener('input', (e) => {
+          musicVolume = e.target.value / 100;
+          document.getElementById('musicVolumeValue').textContent = e.target.value;
+          if (backgroundMusicGain) {
+            backgroundMusicGain.gain.value = musicVolume;
+          }
+        });
       }
 
             async function startVideoCreation() {
@@ -394,6 +422,31 @@
           if (includeAudio) {
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
             audioDestination = audioContext.createMediaStreamDestination();
+
+                        // Arkaplan müziği başlat
+            if (includeBackgroundMusic && backgroundMusic) {
+              try {
+                // Yeni bir Audio element oluştur (MediaElementSource için)
+                const musicForRecording = new Audio(backgroundMusic.src);
+                musicForRecording.loop = true;
+                musicForRecording.volume = musicVolume;
+
+                // AudioContext'e müziği bağla
+                const musicSource = audioContext.createMediaElementSource(musicForRecording);
+                backgroundMusicGain = audioContext.createGain();
+                backgroundMusicGain.gain.value = musicVolume;
+
+                musicSource.connect(backgroundMusicGain);
+                backgroundMusicGain.connect(audioDestination);
+
+                // Müziği başlat
+                musicForRecording.currentTime = 0;
+                musicForRecording.play();
+                console.log('Arkaplan müziği başlatıldı');
+              } catch (error) {
+                console.error('Arkaplan müziği başlatılamadı:', error);
+              }
+            }
           }
 
           // Setup MediaRecorder with video and audio
@@ -438,6 +491,10 @@
             updateProgress(100, 'Tamamlandı!');
 
             // Cleanup audio
+            if (backgroundMusic) {
+              backgroundMusic.pause();
+              backgroundMusic = null;
+            }
             if (audioContext) {
               audioContext.close();
               audioContext = null;
@@ -867,6 +924,18 @@
         // Update button text
         previewBtn.innerHTML = '<i class="fas fa-stop me-2"></i>Önizlemeyi Durdur';
 
+        // Önizlemede arkaplan müziği başlat
+        if (includeBackgroundMusic && backgroundMusic) {
+          try {
+            backgroundMusic.currentTime = 0;
+            backgroundMusic.volume = musicVolume;
+            backgroundMusic.play();
+            console.log('Önizleme için arkaplan müziği başlatıldı');
+          } catch (error) {
+            console.error('Önizleme müziği başlatılamadı:', error);
+          }
+        }
+
         startPreviewLoop();
       }
 
@@ -933,6 +1002,11 @@
           previewAudio = null;
         }
 
+        // Stop background music
+        if (backgroundMusic) {
+          backgroundMusic.pause();
+        }
+
         // Reset to welcome screen
         drawWelcomeScreen();
         updateProgress(0, 'Hazırlanıyor');
@@ -993,6 +1067,14 @@
 
         // Update UI with new durations
         updateTotalDuration();
+
+        // Arkaplan müziği yükle
+        if (includeBackgroundMusic) {
+          await loadBackgroundMusic();
+        }
+
+        // Debug: Müzik test butonu ekle
+        addMusicTestButton();
       }
 
       async function preloadImages() {
@@ -1059,6 +1141,85 @@
         if (durationElement) {
           durationElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
         }
+      }
+
+      async function loadBackgroundMusic() {
+        try {
+          console.log('Arkaplan müziği yükleniyor...');
+
+          // Random müzik seç
+          const musicFiles = [
+            'Otros Hijos - Casa Rosa.mp3',
+            'Glaze My Ego - The Soundlings.mp3',
+            'Bah Dop Bop - Casa Rosa\'s Tulum Vibes.mp3',
+            'Swimming with Gurus - Casa Rosa\'s Tulum Vibes.mp3',
+            'Oh Please - Telecasted.mp3',
+            'Apollo - Telecasted.mp3'
+          ];
+
+          const randomMusic = musicFiles[Math.floor(Math.random() * musicFiles.length)];
+          const musicPath = `/musics/${encodeURIComponent(randomMusic)}`;
+
+          console.log('Seçilen müzik:', randomMusic);
+          console.log('Müzik yolu:', musicPath);
+
+          backgroundMusic = new Audio(musicPath);
+          backgroundMusic.loop = true;
+          backgroundMusic.volume = musicVolume;
+
+          // Müziğin yüklenmesini bekle
+          await new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+              reject(new Error('Müzik yükleme timeout'));
+            }, 10000); // 10 saniye timeout
+
+            backgroundMusic.addEventListener('canplaythrough', () => {
+              clearTimeout(timeout);
+              resolve();
+            });
+
+            backgroundMusic.addEventListener('loadeddata', () => {
+              clearTimeout(timeout);
+              resolve();
+            });
+
+            backgroundMusic.addEventListener('error', (e) => {
+              clearTimeout(timeout);
+              reject(e);
+            });
+
+            // Yüklemeyi başlat
+            backgroundMusic.load();
+          });
+
+          console.log('Arkaplan müziği başarıyla yüklendi');
+        } catch (error) {
+          console.error('Arkaplan müziği yüklenirken hata:', error);
+          backgroundMusic = null;
+        }
+      }
+
+      function addMusicTestButton() {
+        // Debug için müzik test butonu ekle
+        const testBtn = document.createElement('button');
+        testBtn.className = 'btn btn-outline-light w-100 mt-2';
+        testBtn.innerHTML = '<i class="fas fa-music me-2"></i>Müzik Test';
+        testBtn.onclick = () => {
+          if (backgroundMusic) {
+            if (backgroundMusic.paused) {
+              backgroundMusic.play();
+              testBtn.innerHTML = '<i class="fas fa-pause me-2"></i>Müzik Durdur';
+            } else {
+              backgroundMusic.pause();
+              testBtn.innerHTML = '<i class="fas fa-music me-2"></i>Müzik Test';
+            }
+          } else {
+            alert('Müzik yüklenmedi!');
+          }
+        };
+
+        // Download butonundan önce ekle
+        downloadBtn.parentNode.insertBefore(testBtn, downloadBtn);
       }
 
       function downloadVideo() {
