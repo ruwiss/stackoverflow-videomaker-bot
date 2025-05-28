@@ -113,6 +113,42 @@
         padding: 12px;
         border: 1px solid #dee2e6;
       }
+
+      /* Kelime highlighting stilleri */
+      .step-text-highlighted {
+        background: #f6f8fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin: 0.5rem 0;
+        border: 1px solid #d0d7de;
+        font-size: 16px;
+        line-height: 1.6;
+      }
+
+      .word {
+        transition: all 0.3s ease;
+        padding: 2px 1px;
+        border-radius: 3px;
+      }
+
+      .word.current {
+        background: linear-gradient(135deg, #0969da 0%, #0550ae 100%);
+        color: white;
+        font-weight: bold;
+        transform: scale(1.05);
+        box-shadow: 0 2px 4px rgba(9, 105, 218, 0.3);
+      }
+
+      .word.read {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        opacity: 0.8;
+      }
+
+      .word.unread {
+        color: #6c757d;
+        opacity: 0.7;
+      }
     </style>
   </head>
   <body>
@@ -577,23 +613,29 @@
                               <div class="d-flex align-items-center">
                                 <i class="fas fa-volume-up text-primary me-2"></i>
                                 <span class="text-muted me-2">Seslendirme:</span>
-                                <audio controls class="flex-grow-1" preload="metadata">
+                                <audio controls class="flex-grow-1" preload="metadata" id="audio-${index}" onloadedmetadata="setupWordHighlighting(${index}, '${step.text.replace(/'/g, "\\'")}', this)">
                                   <source src="${step.audioPath}" type="audio/mpeg">
                                   Tarayıcınız audio elementini desteklemiyor.
                                 </audio>
                               </div>
                             </div>
                           </div>
-                      `;
-                    } else {
-                      // TTS yoksa bilgi mesajı göster
-                      stepHtml += `
                           <div class="mt-3">
-                            <div class="alert alert-info py-2 px-3 mb-0">
-                              <i class="fas fa-info-circle me-2"></i>
-                              <small>Seslendirme şu anda kullanılamıyor (API limiti)</small>
+                            <div class="step-text-highlighted" id="highlighted-text-${index}">
+                              ${step.text}
                             </div>
                           </div>
+                      `;
+                    } else {
+                      // TTS yoksa normal metin göster
+                      stepHtml += `
+                        <div class="step-text">${step.text}</div>
+                        <div class="mt-3">
+                          <div class="alert alert-info py-2 px-3 mb-0">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <small>Seslendirme şu anda kullanılamıyor (API limiti)</small>
+                          </div>
+                        </div>
                       `;
                     }
 
@@ -1049,6 +1091,95 @@
           btn.innerHTML = originalHtml;
         }
       });
+
+      // Kelime highlighting sistemi
+      let wordTimings = {};
+
+      function setupWordHighlighting(stepIndex, text, audioElement) {
+        // Metni kelimelere böl
+        const words = text.split(/\s+/).filter((word) => word.length > 0);
+        const totalDuration = audioElement.duration || 0;
+
+        if (totalDuration === 0) {
+          console.warn("Audio duration not available for step", stepIndex);
+          return;
+        }
+
+        // Her kelimeye timing hesapla (eşit dağılım)
+        const timePerWord = totalDuration / words.length;
+        const timings = words.map((word, index) => ({
+          word: word,
+          startTime: index * timePerWord,
+          endTime: (index + 1) * timePerWord,
+          index: index,
+        }));
+
+        wordTimings[stepIndex] = timings;
+
+        // HTML'i kelime span'leri ile yeniden oluştur
+        const highlightedContainer = document.getElementById(`highlighted-text-${stepIndex}`);
+        if (highlightedContainer) {
+          highlightedContainer.innerHTML = words.map((word, index) => `<span class="word unread" data-word-index="${index}">${word}</span>`).join(" ");
+        }
+
+        // Audio event listener'ları ekle
+        audioElement.addEventListener("play", () => startWordHighlighting(stepIndex));
+        audioElement.addEventListener("pause", () => pauseWordHighlighting(stepIndex));
+        audioElement.addEventListener("ended", () => endWordHighlighting(stepIndex));
+        audioElement.addEventListener("timeupdate", () => updateWordHighlighting(stepIndex, audioElement.currentTime));
+
+        console.log(`Step ${stepIndex} word highlighting setup complete. ${words.length} words, ${totalDuration.toFixed(2)}s duration`);
+      }
+
+      function startWordHighlighting(stepIndex) {
+        console.log(`Starting word highlighting for step ${stepIndex}`);
+      }
+
+      function pauseWordHighlighting(stepIndex) {
+        console.log(`Pausing word highlighting for step ${stepIndex}`);
+      }
+
+      function endWordHighlighting(stepIndex) {
+        console.log(`Ending word highlighting for step ${stepIndex}`);
+        // Tüm kelimeleri "read" durumuna getir
+        const container = document.getElementById(`highlighted-text-${stepIndex}`);
+        if (container) {
+          const words = container.querySelectorAll(".word");
+          words.forEach((word) => {
+            word.className = "word read";
+          });
+        }
+      }
+
+      function updateWordHighlighting(stepIndex, currentTime) {
+        const timings = wordTimings[stepIndex];
+        if (!timings) return;
+
+        const container = document.getElementById(`highlighted-text-${stepIndex}`);
+        if (!container) return;
+
+        const words = container.querySelectorAll(".word");
+        let currentWordIndex = -1;
+
+        // Hangi kelimede olduğumuzu bul
+        for (let i = 0; i < timings.length; i++) {
+          if (currentTime >= timings[i].startTime && currentTime < timings[i].endTime) {
+            currentWordIndex = i;
+            break;
+          }
+        }
+
+        // Kelimeleri güncelle
+        words.forEach((wordElement, index) => {
+          if (index < currentWordIndex) {
+            wordElement.className = "word read"; // Okunan kelimeler
+          } else if (index === currentWordIndex) {
+            wordElement.className = "word current"; // Şu an okunan kelime
+          } else {
+            wordElement.className = "word unread"; // Henüz okunmayan kelimeler
+          }
+        });
+      }
     </script>
   </body>
 </html>

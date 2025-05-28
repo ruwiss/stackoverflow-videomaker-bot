@@ -262,6 +262,7 @@
       let transitionTime = 0;
       let currentTransitionDuration = 2; // Dinamik geçiş süresi
       let audioDurationsLoaded = false;
+      let previewMode = false;
 
       // UI Elements
       const startBtn = document.getElementById('startVideoBtn');
@@ -284,33 +285,73 @@
 
       function initializeCanvas() {
         // Set canvas background
-        ctx.fillStyle = '#1a1a1a';
+        ctx.fillStyle = '#0F0F23';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Draw initial frame
-        drawWelcomeScreen();
+        // Start welcome screen animation
+        animateWelcomeScreen();
+      }
+
+      function animateWelcomeScreen() {
+        if (!isRecording && !previewMode) {
+          drawWelcomeScreen();
+          requestAnimationFrame(animateWelcomeScreen);
+        }
       }
 
       function drawWelcomeScreen() {
         // Clear canvas
-        ctx.fillStyle = '#1a1a1a';
+        ctx.fillStyle = '#0F0F23';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Draw gradient background
-        const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-        gradient.addColorStop(0, '#667eea');
-        gradient.addColorStop(1, '#764ba2');
+        // Modern gradient background - safe values
+        const gradient = ctx.createRadialGradient(
+          canvas.width/2, canvas.height/2, 0,
+          canvas.width/2, canvas.height/2, Math.max(canvas.width, canvas.height)/2
+        );
+        gradient.addColorStop(0, '#1e1e3f');
+        gradient.addColorStop(0.5, '#2d1b69');
+        gradient.addColorStop(1, '#0F0F23');
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Draw title
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 80px Arial';
+        // Add animated particles
+        const time = Date.now() * 0.001;
+        ctx.fillStyle = 'rgba(124, 58, 237, 0.1)';
+        for (let i = 0; i < 20; i++) {
+          const x = (Math.sin(time + i) * 200) + canvas.width / 2;
+          const y = (Math.cos(time + i * 0.5) * 100) + canvas.height / 2;
+          const size = Math.sin(time + i) * 2 + 3;
+          ctx.beginPath();
+          ctx.arc(x, y, size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Modern title container
+        const titleContainer = {
+          x: canvas.width * 0.1,
+          y: canvas.height * 0.3,
+          width: canvas.width * 0.8,
+          height: canvas.height * 0.4
+        };
+
+        // Glass morphism background
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+        ctx.fillRect(titleContainer.x, titleContainer.y, titleContainer.width, titleContainer.height);
+
+        // Border glow
+        ctx.strokeStyle = 'rgba(124, 58, 237, 0.3)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(titleContainer.x, titleContainer.y, titleContainer.width, titleContainer.height);
+
+        // Title text
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 72px system-ui, -apple-system, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
-        const title = videoData.title;
-        const maxWidth = canvas.width - 200;
+        const title = videoData.title || 'Video Başlığı';
+        const maxWidth = titleContainer.width - 100;
         const words = title.split(' ');
         let lines = [];
         let currentLine = '';
@@ -328,16 +369,45 @@
         }
         if (currentLine) lines.push(currentLine);
 
-        const lineHeight = 100;
-        const startY = (canvas.height / 2) - ((lines.length - 1) * lineHeight / 2);
+        // Draw title with glow effect
+        const lineHeight = 90;
+        const titleY = titleContainer.y + titleContainer.height/2 - ((lines.length - 1) * lineHeight / 2);
 
         lines.forEach((line, index) => {
-          ctx.fillText(line, canvas.width / 2, startY + index * lineHeight);
+          const y = titleY + index * lineHeight;
+
+          // Glow effect
+          ctx.shadowColor = '#7C3AED';
+          ctx.shadowBlur = 20;
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillText(line, canvas.width / 2, y);
+
+          // Reset shadow
+          ctx.shadowBlur = 0;
         });
 
-        // Draw subtitle
-        ctx.font = 'normal 40px Arial';
-        ctx.fillText('Hazır. Video oluşturmaya başlamak için butona tıklayın.', canvas.width / 2, canvas.height - 200);
+        // Subtitle
+        ctx.font = 'normal 32px system-ui, -apple-system, sans-serif';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.fillText('Hazır. Video oluşturmaya başlamak için butona tıklayın.', canvas.width / 2, canvas.height - 150);
+
+        // Animated play button indicator
+        const buttonY = canvas.height - 100;
+        const pulseScale = 1 + Math.sin(time * 3) * 0.1;
+
+        ctx.fillStyle = 'rgba(124, 58, 237, 0.3)';
+        ctx.beginPath();
+        ctx.arc(canvas.width / 2, buttonY, 30 * pulseScale, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Play triangle
+        ctx.fillStyle = '#FFFFFF';
+        ctx.beginPath();
+        ctx.moveTo(canvas.width / 2 - 8, buttonY - 10);
+        ctx.lineTo(canvas.width / 2 + 8, buttonY);
+        ctx.lineTo(canvas.width / 2 - 8, buttonY + 10);
+        ctx.closePath();
+        ctx.fill();
       }
 
       function createTimeline() {
@@ -405,7 +475,7 @@
         });
       }
 
-            async function startVideoCreation() {
+      async function startVideoCreation() {
         if (isRecording) return;
 
         // Check if audio durations are loaded
@@ -430,7 +500,7 @@
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
             audioDestination = audioContext.createMediaStreamDestination();
 
-                                    // Arkaplan müziği başlat
+            // Arkaplan müziği başlat
             if (includeBackgroundMusic && backgroundMusic) {
               try {
                 console.log('Video kayıt için müzik hazırlanıyor...');
@@ -616,7 +686,7 @@
         }
       }
 
-                  let lastFrameTime = 0;
+      let lastFrameTime = 0;
       let videoStartTime = 0;
       let stepStartTimes = [];
 
@@ -746,111 +816,181 @@
         animationId = requestAnimationFrame(animateVideo);
       }
 
-            let currentImage = null;
+      let currentImage = null;
       let imageCache = {};
 
       function drawVideoFrame(step, stepTime) {
         // Clear canvas
-        ctx.fillStyle = '#1a1a1a';
+        ctx.fillStyle = '#0F0F23';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Draw background gradient
-        const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-        gradient.addColorStop(0, '#667eea20');
-        gradient.addColorStop(1, '#764ba240');
+        // Modern gradient background - safe values
+        const gradient = ctx.createRadialGradient(
+          canvas.width/2, canvas.height/2, 0,
+          canvas.width/2, canvas.height/2, Math.max(canvas.width, canvas.height)/2
+        );
+        gradient.addColorStop(0, '#1e1e3f');
+        gradient.addColorStop(0.5, '#2d1b69');
+        gradient.addColorStop(1, '#0F0F23');
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Draw text area background
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-        ctx.fillRect(50, 50, canvas.width - 100, 200);
+        // Add subtle pattern overlay
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.02)';
+        for (let i = 0; i < canvas.width; i += 100) {
+          for (let j = 0; j < canvas.height; j += 100) {
+            ctx.fillRect(i, j, 1, 1);
+          }
+        }
 
-        // Draw step text
-        ctx.fillStyle = '#2d3748';
-        ctx.font = 'bold 48px Arial';
+        // Modern text container with glassmorphism effect
+        const textAreaHeight = 250;
+        const margin = 60;
+
+        // Glass background
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.fillRect(margin, margin, canvas.width - margin*2, textAreaHeight);
+
+        // Border glow
+        ctx.strokeStyle = 'rgba(124, 58, 237, 0.3)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(margin, margin, canvas.width - margin*2, textAreaHeight);
+
+        // Inner glow
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(margin + 1, margin + 1, canvas.width - margin*2 - 2, textAreaHeight - 2);
+
+        // Calculate word-by-word animation - with audio sync
+        const text = step.text || '';
+        const words = text.split(' ').filter(word => word.length > 0);
+        const actualDuration = adjustedStepDurations[currentStepIndex] || step.duration || 5;
+
+        let wordsToShow = 0;
+        let finalText = '';
+
+        // Dynamic word timing based on audio presence and duration
+        if (step.audioPath && actualDuration > 2) {
+          // Audio-synced timing - words appear progressively with speech
+          const speechStartDelay = 0.2; // Slight delay for audio to start
+          const speechEndBuffer = 0.8; // Complete text before audio ends
+          const effectiveDuration = actualDuration - speechStartDelay - speechEndBuffer;
+          const adjustedTime = Math.max(0, stepTime - speechStartDelay);
+
+          if (adjustedTime > 0 && effectiveDuration > 0) {
+            // Non-linear progression for more natural speech sync
+            const progress = Math.min(1, adjustedTime / effectiveDuration);
+            const easedProgress = 1 - Math.pow(1 - progress, 1.5); // Ease-out curve
+            wordsToShow = Math.floor(words.length * easedProgress);
+          }
+
+          // Show all words in final moments
+          if (stepTime >= actualDuration - speechEndBuffer) {
+            wordsToShow = words.length;
+          }
+        } else {
+          // Fast typing effect for steps without audio
+          const typingSpeed = 8; // words per second
+          wordsToShow = Math.min(words.length, Math.floor(stepTime * typingSpeed));
+        }
+
+        finalText = words.slice(0, wordsToShow).join(' ');
+
+        // Always show at least some text after 0.5 seconds
+        if (stepTime > 0.5 && finalText.length === 0 && words.length > 0) {
+          finalText = words[0];
+          wordsToShow = 1;
+        }
+
+        // Modern typography
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 52px system-ui, -apple-system, sans-serif';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'top';
 
-        const text = step.text;
-        const maxWidth = canvas.width - 140;
-        const words = text.split(' ');
-        let lines = [];
-        let currentLine = '';
+        // Text wrapping with better spacing
+        const maxWidth = canvas.width - (margin + 40)*2;
 
-        for (const word of words) {
-          const testLine = currentLine + (currentLine ? ' ' : '') + word;
-          const metrics = ctx.measureText(testLine);
+        // Only process if we have visible text
+        if (finalText.length > 0) {
+          const wrappedWords = finalText.split(' ');
+          let lines = [];
+          let currentLine = '';
 
-          if (metrics.width > maxWidth && currentLine) {
-            lines.push(currentLine);
-            currentLine = word;
-          } else {
-            currentLine = testLine;
+          for (const word of wrappedWords) {
+            const testLine = currentLine + (currentLine ? ' ' : '') + word;
+            const metrics = ctx.measureText(testLine);
+
+            if (metrics.width > maxWidth && currentLine) {
+              lines.push(currentLine);
+              currentLine = word;
+            } else {
+              currentLine = testLine;
+            }
+          }
+          if (currentLine) lines.push(currentLine);
+
+          // Draw text with enhanced spacing
+          const lineHeight = 65;
+          const textStartY = margin + 40;
+
+          lines.forEach((line, index) => {
+            if (index < 3) { // Max 3 lines
+              // Text shadow for depth
+              ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+              ctx.fillText(line, margin + 42, textStartY + index * lineHeight + 2);
+
+              // Main text
+              ctx.fillStyle = '#FFFFFF';
+              ctx.fillText(line, margin + 40, textStartY + index * lineHeight);
+            }
+          });
+
+          // Typing cursor effect on last visible word
+          if (wordsToShow < words.length && finalText.length > 0) {
+            const lastLineIndex = Math.min(lines.length - 1, 2);
+            const lastLine = lines[lastLineIndex] || '';
+            const cursorX = margin + 40 + ctx.measureText(lastLine).width + 10;
+            const cursorY = textStartY + lastLineIndex * lineHeight;
+
+            // Blinking cursor
+            const blinkSpeed = 800; // ms
+            const shouldShowCursor = Math.floor(Date.now() / blinkSpeed) % 2 === 0;
+
+            if (shouldShowCursor) {
+              ctx.fillStyle = '#7C3AED';
+              ctx.fillRect(cursorX, cursorY + 10, 4, 40);
+            }
           }
         }
-        if (currentLine) lines.push(currentLine);
 
-        const lineHeight = 55;
-        lines.forEach((line, index) => {
-          if (index < 3) { // Max 3 lines
-            ctx.fillText(line, 70, 70 + index * lineHeight);
-          }
-        });
-
-        // Draw code image - immediate display with cache
+        // Enhanced image display
         if (step.codeImage) {
           if (imageCache[step.codeImage]) {
-            // Image already cached, draw immediately
             currentImage = imageCache[step.codeImage];
-            drawImage(currentImage);
+            drawModernImage(currentImage);
           } else {
-            // Load and cache image
             loadAndCacheImage(step.codeImage);
           }
         } else if (currentImage) {
-          // Keep previous image if no new image
-          drawImage(currentImage);
+          drawModernImage(currentImage);
         }
 
-                // Draw progress bar for current step
-        const actualDuration = adjustedStepDurations[currentStepIndex] || step.duration;
-        const stepProgress = Math.min(1, stepTime / actualDuration);
-        ctx.fillStyle = '#28a745';
-        ctx.fillRect(70, 270, (canvas.width - 140) * stepProgress, 10);
-
-        ctx.strokeStyle = '#dee2e6';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(70, 270, canvas.width - 140, 10);
+        // Step indicator (replaces progress bar)
+        drawStepIndicator(step, stepTime, actualDuration);
       }
 
-      function loadAndCacheImage(imagePath) {
-        if (imageCache[imagePath]) {
-          currentImage = imageCache[imagePath];
-          drawImage(currentImage);
-          return;
-        }
+      function drawModernImage(img) {
+        if (!img || !img.width || !img.height) return;
 
-        const img = new Image();
-        img.onload = () => {
-          imageCache[imagePath] = img;
-          currentImage = img;
-          drawImage(img);
-        };
-        img.src = imagePath;
-      }
-
-      function loadAndDrawImage(imagePath) {
-        loadAndCacheImage(imagePath);
-      }
-
-      function drawImage(img) {
-        const maxWidth = canvas.width - 100;
-        const maxHeight = canvas.height - 400;
+        const maxWidth = canvas.width - 120;
+        const maxHeight = canvas.height - 480;
+        const margin = 60;
 
         let drawWidth = img.width;
         let drawHeight = img.height;
 
-        // Scale to fit
+        // Scale to fit with padding
         if (drawWidth > maxWidth) {
           drawHeight = (drawHeight * maxWidth) / drawWidth;
           drawWidth = maxWidth;
@@ -863,14 +1003,98 @@
 
         // Center the image
         const x = (canvas.width - drawWidth) / 2;
-        const y = 320;
+        const y = 380;
 
-        // Draw image with border
-        ctx.strokeStyle = '#dee2e6';
-        ctx.lineWidth = 3;
-        ctx.strokeRect(x - 3, y - 3, drawWidth + 6, drawHeight + 6);
+        // Modern container with shadow
+        const padding = 20;
 
-        ctx.drawImage(img, x, y, drawWidth, drawHeight);
+        // Shadow
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.fillRect(x - padding + 5, y - padding + 5, drawWidth + padding*2, drawHeight + padding*2);
+
+        // Background
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+        ctx.fillRect(x - padding, y - padding, drawWidth + padding*2, drawHeight + padding*2);
+
+        // Border
+        ctx.strokeStyle = 'rgba(124, 58, 237, 0.2)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x - padding, y - padding, drawWidth + padding*2, drawHeight + padding*2);
+
+        // Image
+        try {
+          ctx.drawImage(img, x, y, drawWidth, drawHeight);
+        } catch (error) {
+          console.log('Image drawing error:', error);
+          // Fallback: draw placeholder
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+          ctx.font = '24px system-ui, -apple-system, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('Resim yükleniyor...', canvas.width / 2, y + drawHeight / 2);
+        }
+
+        // Subtle inner glow
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x - padding + 1, y - padding + 1, drawWidth + padding*2 - 2, drawHeight + padding*2 - 2);
+      }
+
+      function drawStepIndicator(step, stepTime, actualDuration) {
+        const indicatorWidth = 400;
+        const indicatorHeight = 8;
+        const x = (canvas.width - indicatorWidth) / 2;
+        const y = canvas.height - 100;
+
+        // Background
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.fillRect(x, y, indicatorWidth, indicatorHeight);
+
+        // Progress - with safety checks
+        const safeStepTime = Math.max(0, stepTime || 0);
+        const safeDuration = Math.max(0.1, actualDuration || 1);
+        const progress = Math.min(1, Math.max(0, safeStepTime / safeDuration));
+        const progressWidth = indicatorWidth * progress;
+
+        // Gradient progress bar - safe values
+        if (progressWidth > 0) {
+          const progressGradient = ctx.createLinearGradient(x, y, x + progressWidth, y);
+          progressGradient.addColorStop(0, '#7C3AED');
+          progressGradient.addColorStop(0.5, '#A855F7');
+          progressGradient.addColorStop(1, '#C084FC');
+
+          ctx.fillStyle = progressGradient;
+          ctx.fillRect(x, y, progressWidth, indicatorHeight);
+        }
+
+        // Step counter
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.font = 'bold 24px system-ui, -apple-system, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(
+          `${currentStepIndex + 1} / ${videoData.steps.length}`,
+          canvas.width / 2,
+          y + 40
+        );
+      }
+
+      function loadAndCacheImage(imagePath) {
+        if (imageCache[imagePath]) {
+          currentImage = imageCache[imagePath];
+          drawModernImage(currentImage);
+          return;
+        }
+
+        const img = new Image();
+        img.onload = () => {
+          imageCache[imagePath] = img;
+          currentImage = img;
+          drawModernImage(img);
+        };
+        img.src = imagePath;
+      }
+
+      function loadAndDrawImage(imagePath) {
+        loadAndCacheImage(imagePath);
       }
 
       function updateTimeline() {
@@ -887,7 +1111,7 @@
         }
       }
 
-            function updateStats() {
+      function updateStats() {
         const elapsed = Math.floor((Date.now() - startTime) / 1000);
         const minutes = Math.floor(elapsed / 60);
         const seconds = elapsed % 60;
@@ -929,7 +1153,7 @@
         progressSubtext.textContent = subtext;
       }
 
-                        function playStepAudioForRecording(audioPath) {
+      function playStepAudioForRecording(audioPath) {
         if (!includeAudio || !audioContext || !audioDestination) {
           return;
         }
@@ -991,8 +1215,7 @@
         }
       }
 
-            let previewIndex = 0;
-      let previewMode = false;
+      let previewIndex = 0;
       let previewTimeout = null;
       let previewAudio = null;
 
@@ -1088,14 +1311,16 @@
           backgroundMusic.pause();
         }
 
-        // Reset to welcome screen
-        drawWelcomeScreen();
+        // Reset progress and restart welcome screen animation
         updateProgress(0, 'Hazırlanıyor');
 
         // Reset timeline
         document.querySelectorAll('.timeline-step').forEach(el => {
           el.classList.remove('active', 'completed');
         });
+
+        // Restart welcome screen animation
+        animateWelcomeScreen();
       }
 
       // Update preview button click handler
@@ -1107,7 +1332,7 @@
         }
       });
 
-            async function preloadAudioDurations() {
+      async function preloadAudioDurations() {
         console.log('Ses dosyası süreleri yükleniyor...');
 
         for (let i = 0; i < videoData.steps.length; i++) {
