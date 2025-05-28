@@ -145,11 +145,29 @@
             <div class="card-body">
               <form id="generateForm">
                 <div class="mb-3">
+                  <label class="form-label"><i class="fas fa-globe me-2"></i>Video Dili</label>
+                  <select class="form-select" id="languageSelect" name="language">
+                    <option value="tr">Türkçe</option>
+                    <option value="en" selected>English</option>
+                    <option value="de">Deutsch</option>
+                    <option value="fr">Français</option>
+                    <option value="es">Español</option>
+                    <option value="it">Italiano</option>
+                    <option value="pt">Português</option>
+                    <option value="ja">日本語</option>
+                    <option value="ko">한국어</option>
+                    <option value="zh">中文</option>
+                    <option value="ru">Русский</option>
+                    <option value="ar">العربية</option>
+                  </select>
+                  <div class="form-text">Adımlar ve açıklamalar bu dilde yazılacak</div>
+                </div>
+                <div class="mb-3">
                   <label class="form-label"><i class="fas fa-microphone me-2"></i>Seslendirme</label>
-                  <div class="alert alert-info py-2 px-3 mb-0">
-                    <i class="fas fa-robot me-2"></i>
-                    <strong>Coqui AI TTS</strong> - Doğal ve kaliteli seslendirme <br /><small class="text-muted">Otomatik olarak en uygun ses karakteri seçilecek</small>
-                  </div>
+                  <select class="form-select" id="voiceSelect" name="voiceId">
+                    <option value="" disabled selected>Ses seçiliyor...</option>
+                  </select>
+                  <div class="form-text">Videonuz için kullanılacak seslendirme seçin</div>
                 </div>
                 <button type="submit" class="btn btn-success w-100 fw-medium"><i class="fas fa-magic me-2"></i>Video İçeriği Oluştur</button>
               </form>
@@ -158,90 +176,206 @@
         </div>
 
         <div class="col-md-8">
-          <div class="loading-spinner">
-            <div class="card main-card">
-              <div class="card-body text-center py-5">
-                <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem">
-                  <span class="visually-hidden">Yükleniyor...</span>
+          <!-- Tab Navigation -->
+          <ul class="nav nav-tabs mb-3" id="mainTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="api-tab" data-bs-toggle="tab" data-bs-target="#api-content" type="button" role="tab"><i class="fas fa-key me-2"></i>ElevenLabs API Management</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="test-tab" data-bs-toggle="tab" data-bs-target="#test-content" type="button" role="tab"><i class="fas fa-volume-up me-2"></i>Voice Testing</button>
+            </li>
+          </ul>
+
+          <!-- Tab Content -->
+          <div class="tab-content" id="mainTabContent">
+            <!-- Video Settings Tab -->
+            <div class="tab-pane fade show active" id="video-content" role="tabpanel">
+              <div class="loading-spinner">
+                <div class="card main-card">
+                  <div class="card-body text-center py-5">
+                    <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem">
+                      <span class="visually-hidden">Yükleniyor...</span>
+                    </div>
+                    <p class="mt-3 fw-medium" id="loadingText">Video içeriği oluşturuluyor...</p>
+                    <div class="progress" style="height: 12px">
+                      <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%" id="progressBar"></div>
+                    </div>
+                    <div class="mt-3">
+                      <div id="progressSteps" class="text-start">
+                        <!-- Adımlar burada gösterilecek -->
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <p class="mt-3 fw-medium" id="loadingText">Video içeriği oluşturuluyor...</p>
-                <div class="progress" style="height: 12px">
-                  <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%" id="progressBar"></div>
-                </div>
-                <div class="mt-3">
-                  <div id="progressSteps" class="text-start">
-                    <!-- Adımlar burada gösterilecek -->
+              </div>
+
+              <div class="result-section">
+                <div class="card main-card">
+                  <div class="card-header youtube-header text-white">
+                    <h5 class="mb-0"><i class="fab fa-youtube me-2"></i>YouTube Video Details</h5>
+                  </div>
+                  <div class="card-body p-4">
+                    <!-- Thumbnail and Basic Info -->
+                    <div class="row mb-4">
+                      <div class="col-md-4">
+                        <div class="position-relative">
+                          <div class="thumbnail-placeholder d-flex align-items-center justify-content-center" id="thumbnailContainer">
+                            <div class="text-center text-muted" id="thumbnailPlaceholder">
+                              <i class="fas fa-image fa-3x mb-2"></i>
+                              <p class="mb-0 fw-medium">Thumbnail</p>
+                              <small>(Coming Soon)</small>
+                            </div>
+                            <img id="thumbnailImage" class="w-100 h-100" style="display: none; object-fit: cover; border-radius: 12px" alt="Video Thumbnail" />
+                          </div>
+                          <!-- Yeniden oluştur butonu -->
+                          <button id="regenerateThumbnail" class="btn btn-sm btn-outline-primary position-absolute" style="top: 10px; right: 10px; display: none; z-index: 10" title="Yeni tasarım oluştur">
+                            <i class="fas fa-sync-alt"></i>
+                          </button>
+                        </div>
+                      </div>
+                      <div class="col-md-8">
+                        <!-- Video Title -->
+                        <div class="mb-3">
+                          <label class="form-label">Title</label>
+                          <div class="youtube-field" id="videoTitle"></div>
+                          <div class="form-text">Add a title that describes your video</div>
+                        </div>
+
+                        <!-- Video Description -->
+                        <div class="mb-3">
+                          <label class="form-label">Description</label>
+                          <div class="youtube-field" id="description" style="min-height: 80px"></div>
+                          <div class="form-text">Tell viewers about your video</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Tags Section -->
+                    <div class="mb-4">
+                      <label class="form-label">Tags</label>
+                      <div id="keywords" class="youtube-field"></div>
+                      <div class="form-text">Tags can be useful for finding your content</div>
+                    </div>
+
+                    <!-- Video Steps Section -->
+                    <div class="mb-4">
+                      <label class="form-label"><i class="fas fa-list-ol me-2"></i>Video Script Steps</label>
+                      <div id="videoSteps"></div>
+                    </div>
+
+                    <!-- Video Duration Section -->
+                    <div class="mb-4" id="durationSection" style="display: none">
+                      <label class="form-label"><i class="fas fa-clock me-2"></i>Estimated Duration</label>
+                      <div class="youtube-field">
+                        <div class="d-flex align-items-center">
+                          <i class="fas fa-play-circle text-primary me-2"></i>
+                          <span id="totalDuration" class="fw-bold fs-5"></span>
+                          <small class="text-muted ms-2">minutes</small>
+                        </div>
+                      </div>
+                      <div class="form-text">Estimated time based on reading speed and code complexity</div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <div class="result-section">
-            <div class="card main-card">
-              <div class="card-header youtube-header text-white">
-                <h5 class="mb-0"><i class="fab fa-youtube me-2"></i>YouTube Video Details</h5>
-              </div>
-              <div class="card-body p-4">
-                <!-- Thumbnail and Basic Info -->
-                <div class="row mb-4">
-                  <div class="col-md-4">
-                    <div class="position-relative">
-                      <div class="thumbnail-placeholder d-flex align-items-center justify-content-center" id="thumbnailContainer">
-                        <div class="text-center text-muted" id="thumbnailPlaceholder">
-                          <i class="fas fa-image fa-3x mb-2"></i>
-                          <p class="mb-0 fw-medium">Thumbnail</p>
-                          <small>(Coming Soon)</small>
+            <!-- ElevenLabs API Management Tab -->
+            <div class="tab-pane fade" id="api-content" role="tabpanel">
+              <div class="card main-card">
+                <div class="card-header bg-primary text-white">
+                  <h5 class="mb-0"><i class="fas fa-key me-2"></i>ElevenLabs API Management</h5>
+                </div>
+                <div class="card-body">
+                  <!-- API Key Ekleme Formu -->
+                  <div class="row mb-4">
+                    <div class="col-md-6">
+                      <h6 class="mb-3"><i class="fas fa-plus-circle me-2"></i>Yeni API Key Ekle</h6>
+                      <form id="addApiForm">
+                        <div class="mb-3">
+                          <label class="form-label">İsim</label>
+                          <input type="text" class="form-control" id="apiName" placeholder="Örn: Ana API" required />
                         </div>
-                        <img id="thumbnailImage" class="w-100 h-100" style="display: none; object-fit: cover; border-radius: 12px" alt="Video Thumbnail" />
+                        <div class="mb-3">
+                          <label class="form-label">API Key</label>
+                          <input type="password" class="form-control" id="apiKey" placeholder="ElevenLabs API Key" required />
+                          <div class="form-text">ElevenLabs hesabınızdan aldığınız API key'i girin</div>
+                        </div>
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-plus me-2"></i>Ekle</button>
+                      </form>
+                    </div>
+                    <div class="col-md-6">
+                      <h6 class="mb-3"><i class="fas fa-list me-2"></i>Mevcut API Key'ler</h6>
+                      <div class="mb-3">
+                        <button class="btn btn-info btn-sm" id="checkLimitsBtn"><i class="fas fa-chart-bar me-2"></i>Limitleri Kontrol Et</button>
                       </div>
-                      <!-- Yeniden oluştur butonu -->
-                      <button id="regenerateThumbnail" class="btn btn-sm btn-outline-primary position-absolute" style="top: 10px; right: 10px; display: none; z-index: 10" title="Yeni tasarım oluştur">
-                        <i class="fas fa-sync-alt"></i>
-                      </button>
-                    </div>
-                  </div>
-                  <div class="col-md-8">
-                    <!-- Video Title -->
-                    <div class="mb-3">
-                      <label class="form-label">Title</label>
-                      <div class="youtube-field" id="videoTitle"></div>
-                      <div class="form-text">Add a title that describes your video</div>
-                    </div>
-
-                    <!-- Video Description -->
-                    <div class="mb-3">
-                      <label class="form-label">Description</label>
-                      <div class="youtube-field" id="description" style="min-height: 80px"></div>
-                      <div class="form-text">Tell viewers about your video</div>
+                      <div id="limitResults" class="mb-3" style="display: none"></div>
+                      <div id="apiList">
+                        <div class="text-center text-muted py-3">
+                          <i class="fas fa-key fa-2x mb-2"></i>
+                          <p>Henüz API key eklenmemiş</p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
+              </div>
+            </div>
 
-                <!-- Tags Section -->
-                <div class="mb-4">
-                  <label class="form-label">Tags</label>
-                  <div id="keywords" class="youtube-field"></div>
-                  <div class="form-text">Tags can be useful for finding your content</div>
+            <!-- Voice Testing Tab -->
+            <div class="tab-pane fade" id="test-content" role="tabpanel">
+              <div class="card main-card">
+                <div class="card-header bg-info text-white">
+                  <h5 class="mb-0"><i class="fas fa-volume-up me-2"></i>Voice Testing</h5>
                 </div>
+                <div class="card-body">
+                  <div class="row">
+                    <!-- ElevenLabs Test -->
+                    <div class="col-md-6 mb-4">
+                      <h6 class="mb-3"><i class="fas fa-robot me-2"></i>ElevenLabs TTS Test</h6>
+                      <form id="testElevenLabsForm">
+                        <div class="mb-3">
+                          <label class="form-label">Test Metni</label>
+                          <textarea class="form-control" id="elevenLabsText" rows="3" placeholder="Test edilecek metni yazın...">This is a test of ElevenLabs text to speech.</textarea>
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label">Ses</label>
+                          <select class="form-select" id="elevenLabsVoice">
+                            <option value="rachel">Rachel (American Female)</option>
+                            <option value="drew">Drew (American Male)</option>
+                            <option value="clyde">Clyde (American Male)</option>
+                            <option value="antoni">Antoni (American Male)</option>
+                          </select>
+                        </div>
+                        <button type="submit" class="btn btn-info"><i class="fas fa-play me-2"></i>Test Et</button>
+                      </form>
+                      <div id="elevenLabsResult" class="mt-3"></div>
+                    </div>
 
-                <!-- Video Steps Section -->
-                <div class="mb-4">
-                  <label class="form-label"><i class="fas fa-list-ol me-2"></i>Video Script Steps</label>
-                  <div id="videoSteps"></div>
-                </div>
-
-                <!-- Video Duration Section -->
-                <div class="mb-4" id="durationSection" style="display: none">
-                  <label class="form-label"><i class="fas fa-clock me-2"></i>Estimated Duration</label>
-                  <div class="youtube-field">
-                    <div class="d-flex align-items-center">
-                      <i class="fas fa-play-circle text-primary me-2"></i>
-                      <span id="totalDuration" class="fw-bold fs-5"></span>
-                      <small class="text-muted ms-2">minutes</small>
+                    <!-- Coqui Test -->
+                    <div class="col-md-6 mb-4">
+                      <h6 class="mb-3"><i class="fas fa-microphone me-2"></i>Coqui TTS Test</h6>
+                      <form id="testCoquiForm">
+                        <div class="mb-3">
+                          <label class="form-label">Test Metni</label>
+                          <textarea class="form-control" id="coquiText" rows="3" placeholder="Test edilecek metni yazın...">Hello, this is a test of Coqui TTS.</textarea>
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label">Ses</label>
+                          <select class="form-select" id="coquiVoice">
+                            <option value="brian">Brian (Male - Tech Narrator)</option>
+                            <option value="sarah">Sarah (Female - Clear Voice)</option>
+                            <option value="alex">Alex (Male - Deep Voice)</option>
+                            <option value="emma">Emma (Female - Warm Voice)</option>
+                            <option value="david">David (Male - Professional)</option>
+                            <option value="lisa">Lisa (Female - Friendly)</option>
+                          </select>
+                        </div>
+                        <button type="submit" class="btn btn-info"><i class="fas fa-play me-2"></i>Test Et</button>
+                      </form>
+                      <div id="coquiResult" class="mt-3"></div>
                     </div>
                   </div>
-                  <div class="form-text">Estimated time based on reading speed and code complexity</div>
                 </div>
               </div>
             </div>
@@ -252,6 +386,69 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+      // Sayfa yüklendiğinde ses listesini yükle
+      document.addEventListener("DOMContentLoaded", async function () {
+        try {
+          const response = await fetch("/api/tts-voices");
+          const data = await response.json();
+
+          if (data.success) {
+            const voiceSelect = document.getElementById("voiceSelect");
+            voiceSelect.innerHTML = '<option value="" disabled selected>Bir ses seçin...</option>';
+
+            // Google Cloud TTS sesleri
+            if (data.voices.google && data.voices.google.length > 0) {
+              const googleGroup = document.createElement("optgroup");
+              googleGroup.label = "Google Cloud TTS";
+              data.voices.google.forEach((voice) => {
+                const option = document.createElement("option");
+                option.value = voice.id;
+                option.textContent = voice.label;
+                googleGroup.appendChild(option);
+              });
+              voiceSelect.appendChild(googleGroup);
+            }
+
+            // Coqui AI TTS sesleri
+            if (data.voices.coqui && data.voices.coqui.length > 0) {
+              const coquiGroup = document.createElement("optgroup");
+              coquiGroup.label = "Coqui AI TTS";
+              data.voices.coqui.forEach((voice) => {
+                const option = document.createElement("option");
+                option.value = voice.id;
+                option.textContent = voice.label;
+                coquiGroup.appendChild(option);
+              });
+              voiceSelect.appendChild(coquiGroup);
+            }
+
+            // ElevenLabs TTS sesleri
+            if (data.voices.elevenlabs && data.voices.elevenlabs.length > 0) {
+              const elevenlabsGroup = document.createElement("optgroup");
+              elevenlabsGroup.label = "ElevenLabs TTS";
+              data.voices.elevenlabs.forEach((voice) => {
+                const option = document.createElement("option");
+                option.value = voice.id;
+                option.textContent = voice.label;
+                elevenlabsGroup.appendChild(option);
+              });
+              voiceSelect.appendChild(elevenlabsGroup);
+            }
+
+            // Varsayılan ses seç (ElevenLabs varsa onu, yoksa ilk sesi)
+            if (data.voices.elevenlabs && data.voices.elevenlabs.length > 0) {
+              voiceSelect.value = data.voices.elevenlabs[0].id;
+            } else if (data.voices.coqui && data.voices.coqui.length > 0) {
+              voiceSelect.value = data.voices.coqui[0].id;
+            }
+          }
+        } catch (error) {
+          console.error("Ses listesi yüklenemedi:", error);
+          const voiceSelect = document.getElementById("voiceSelect");
+          voiceSelect.innerHTML = '<option value="brian">Brian (Coqui AI) - Fallback</option>';
+        }
+      });
+
       document.getElementById("generateForm").addEventListener("submit", async function (e) {
         e.preventDefault();
 
@@ -297,8 +494,17 @@
         updateProgress(0, 10);
 
         try {
+          // Seçili ses ID'sini al
+          const voiceId = document.getElementById("voiceSelect").value;
+          const language = document.getElementById("languageSelect").value;
+          if (!voiceId) {
+            alert("Lütfen bir ses seçin");
+            document.querySelector(".loading-spinner").style.display = "none";
+            return;
+          }
+
           // Server-Sent Events ile progress takibi
-          const eventSource = new EventSource(`/generate-video-content-stream/${questionId}`);
+          const eventSource = new EventSource(`/generate-video-content-stream/${questionId}?voiceId=${voiceId}&language=${language}`);
 
           eventSource.onmessage = function (event) {
             const data = JSON.parse(event.data);
@@ -503,6 +709,342 @@
           alert("Hata oluştu: " + error.message);
         } finally {
           // Butonu tekrar aktif et
+          btn.disabled = false;
+          btn.innerHTML = originalHtml;
+        }
+      });
+
+      // API Key Yönetimi
+      let currentApis = [];
+
+      // API listesini yükle
+      async function loadApiList() {
+        try {
+          const response = await fetch("/api/elevenlabs-apis");
+          const data = await response.json();
+
+          if (data.success) {
+            currentApis = data.apis;
+            renderApiList();
+          }
+        } catch (error) {
+          console.error("API listesi yüklenemedi:", error);
+        }
+      }
+
+      // API listesini render et
+      function renderApiList() {
+        const apiListDiv = document.getElementById("apiList");
+
+        if (currentApis.length === 0) {
+          apiListDiv.innerHTML = `
+            <div class="text-center text-muted py-3">
+              <i class="fas fa-key fa-2x mb-2"></i>
+              <p>Henüz API key eklenmemiş</p>
+            </div>
+          `;
+          return;
+        }
+
+        apiListDiv.innerHTML = currentApis
+          .map(
+            (api) => `
+          <div class="card mb-2">
+            <div class="card-body py-2">
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <strong>${api.name}</strong>
+                  <br>
+                  <small class="text-muted">${api.keyPreview}</small>
+                </div>
+                <div class="d-flex gap-2">
+                  <button class="btn btn-sm ${api.active ? "btn-success" : "btn-outline-secondary"}"
+                          onclick="toggleApiStatus('${api.id}')">
+                    <i class="fas fa-${api.active ? "check" : "times"}"></i>
+                    ${api.active ? "Aktif" : "Pasif"}
+                  </button>
+                  <button class="btn btn-sm btn-outline-danger" onclick="deleteApi('${api.id}')">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        `
+          )
+          .join("");
+      }
+
+      // API key ekleme formu
+      document.getElementById("addApiForm").addEventListener("submit", async function (e) {
+        e.preventDefault();
+
+        const name = document.getElementById("apiName").value;
+        const key = document.getElementById("apiKey").value;
+
+        if (!name || !key) {
+          alert("Lütfen tüm alanları doldurun");
+          return;
+        }
+
+        try {
+          const response = await fetch("/api/elevenlabs-apis", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ name, key }),
+          });
+
+          const result = await response.json();
+
+          if (result.success) {
+            // Formu temizle
+            document.getElementById("apiName").value = "";
+            document.getElementById("apiKey").value = "";
+
+            // Listeyi yenile
+            await loadApiList();
+
+            alert("API key başarıyla eklendi");
+          } else {
+            alert("Hata: " + result.message);
+          }
+        } catch (error) {
+          alert("Bir hata oluştu: " + error.message);
+        }
+      });
+
+      // API key durumunu değiştir
+      async function toggleApiStatus(apiId) {
+        try {
+          const response = await fetch(`/api/elevenlabs-apis/${apiId}`, {
+            method: "PATCH",
+          });
+
+          const result = await response.json();
+
+          if (result.success) {
+            await loadApiList();
+          } else {
+            alert("Hata: " + result.message);
+          }
+        } catch (error) {
+          alert("Bir hata oluştu: " + error.message);
+        }
+      }
+
+      // API key sil
+      async function deleteApi(apiId) {
+        if (!confirm("Bu API key'i silmek istediğinizden emin misiniz?")) {
+          return;
+        }
+
+        try {
+          const response = await fetch(`/api/elevenlabs-apis/${apiId}`, {
+            method: "DELETE",
+          });
+
+          const result = await response.json();
+
+          if (result.success) {
+            await loadApiList();
+            alert("API key başarıyla silindi");
+          } else {
+            alert("Hata: " + result.message);
+          }
+        } catch (error) {
+          alert("Bir hata oluştu: " + error.message);
+        }
+      }
+
+      // ElevenLabs TTS test
+      document.getElementById("testElevenLabsForm").addEventListener("submit", async function (e) {
+        e.preventDefault();
+
+        const text = document.getElementById("elevenLabsText").value;
+        const voiceId = document.getElementById("elevenLabsVoice").value;
+
+        if (!text) {
+          alert("Lütfen test metni girin");
+          return;
+        }
+
+        const resultDiv = document.getElementById("elevenLabsResult");
+        resultDiv.innerHTML = `
+          <div class="alert alert-info">
+            <i class="fas fa-spinner fa-spin me-2"></i>Test ediliyor...
+          </div>
+        `;
+
+        try {
+          const response = await fetch("/api/test-elevenlabs-tts", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ text, voiceId }),
+          });
+
+          const result = await response.json();
+
+          if (result.success) {
+            resultDiv.innerHTML = `
+              <div class="alert alert-success">
+                <i class="fas fa-check-circle me-2"></i>Test başarılı!
+                <div class="mt-2">
+                  <audio controls class="w-100">
+                    <source src="${result.audioPath}" type="audio/mpeg">
+                  </audio>
+                </div>
+              </div>
+            `;
+          } else {
+            resultDiv.innerHTML = `
+              <div class="alert alert-danger">
+                <i class="fas fa-exclamation-circle me-2"></i>Test başarısız: ${result.message}
+              </div>
+            `;
+          }
+        } catch (error) {
+          resultDiv.innerHTML = `
+            <div class="alert alert-danger">
+              <i class="fas fa-exclamation-circle me-2"></i>Hata: ${error.message}
+            </div>
+          `;
+        }
+      });
+
+      // Coqui TTS test
+      document.getElementById("testCoquiForm").addEventListener("submit", async function (e) {
+        e.preventDefault();
+
+        const text = document.getElementById("coquiText").value;
+        const voiceId = document.getElementById("coquiVoice").value;
+
+        if (!text) {
+          alert("Lütfen test metni girin");
+          return;
+        }
+
+        const resultDiv = document.getElementById("coquiResult");
+        resultDiv.innerHTML = `
+          <div class="alert alert-info">
+            <i class="fas fa-spinner fa-spin me-2"></i>Test ediliyor...
+          </div>
+        `;
+
+        try {
+          // Coqui test için genel generateTTS endpoint'ini kullan
+          const response = await fetch("/api/test-coqui-tts", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ text, voiceId }),
+          });
+
+          const result = await response.json();
+
+          if (result.success) {
+            resultDiv.innerHTML = `
+              <div class="alert alert-success">
+                <i class="fas fa-check-circle me-2"></i>Test başarılı!
+                <div class="mt-2">
+                  <audio controls class="w-100">
+                    <source src="${result.audioPath}" type="audio/wav">
+                  </audio>
+                </div>
+              </div>
+            `;
+          } else {
+            resultDiv.innerHTML = `
+              <div class="alert alert-danger">
+                <i class="fas fa-exclamation-circle me-2"></i>Test başarısız: ${result.message}
+              </div>
+            `;
+          }
+        } catch (error) {
+          resultDiv.innerHTML = `
+            <div class="alert alert-danger">
+              <i class="fas fa-exclamation-circle me-2"></i>Hata: ${error.message}
+            </div>
+          `;
+        }
+      });
+
+      // Tab değiştiğinde API listesini yükle
+      document.getElementById("api-tab").addEventListener("click", function () {
+        setTimeout(loadApiList, 100);
+      });
+
+      // ElevenLabs limit kontrol butonu
+      document.getElementById("checkLimitsBtn").addEventListener("click", async function () {
+        const btn = this;
+        const originalHtml = btn.innerHTML;
+        const limitResults = document.getElementById("limitResults");
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Kontrol ediliyor...';
+
+        try {
+          const response = await fetch("/api/elevenlabs-user-info");
+          const data = await response.json();
+
+          if (data.success) {
+            let resultsHtml = '<div class="card border-info">';
+            resultsHtml += '<div class="card-header bg-info text-white"><h6 class="mb-0">ElevenLabs Limit Durumu</h6></div>';
+            resultsHtml += '<div class="card-body">';
+
+            data.apis.forEach((api) => {
+              resultsHtml += `<div class="mb-3 border-bottom pb-2">`;
+              resultsHtml += `<h6>${api.name} (${api.keyPreview})</h6>`;
+
+              if (api.status === "error") {
+                resultsHtml += `<div class="alert alert-danger py-2 mb-2">❌ ${api.error}</div>`;
+              } else {
+                const sub = api.subscription;
+                const user = api.user;
+
+                resultsHtml += `<div class="row">`;
+                resultsHtml += `<div class="col-md-6">`;
+                resultsHtml += `<strong>Plan:</strong> ${sub.tier}<br>`;
+                resultsHtml += `<strong>Karakter Limiti:</strong> ${sub.character_limit.toLocaleString()}<br>`;
+                resultsHtml += `<strong>Kullanılan:</strong> ${sub.character_count.toLocaleString()}<br>`;
+
+                const remaining = sub.character_limit - sub.character_count;
+                const percentage = ((sub.character_count / sub.character_limit) * 100).toFixed(1);
+
+                resultsHtml += `<strong>Kalan:</strong> ${remaining.toLocaleString()} (${percentage}% kullanılmış)<br>`;
+                resultsHtml += `</div>`;
+                resultsHtml += `<div class="col-md-6">`;
+                resultsHtml += `<strong>Ses Limiti:</strong> ${sub.voice_limit}<br>`;
+                resultsHtml += `<strong>Kullanılan Ses:</strong> ${user.voice_count || 0}<br>`;
+                resultsHtml += `<strong>Model Erişimi:</strong> ${sub.can_extend_character_limit ? "Premium" : "Temel"}<br>`;
+                resultsHtml += `</div>`;
+                resultsHtml += `</div>`;
+
+                // Progress bar
+                resultsHtml += `<div class="progress mt-2" style="height: 8px;">`;
+                resultsHtml += `<div class="progress-bar ${percentage > 80 ? "bg-danger" : percentage > 60 ? "bg-warning" : "bg-success"}"
+                                style="width: ${percentage}%"></div>`;
+                resultsHtml += `</div>`;
+              }
+
+              resultsHtml += `</div>`;
+            });
+
+            resultsHtml += "</div></div>";
+            limitResults.innerHTML = resultsHtml;
+            limitResults.style.display = "block";
+          } else {
+            limitResults.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+            limitResults.style.display = "block";
+          }
+        } catch (error) {
+          limitResults.innerHTML = `<div class="alert alert-danger">Hata: ${error.message}</div>`;
+          limitResults.style.display = "block";
+        } finally {
           btn.disabled = false;
           btn.innerHTML = originalHtml;
         }

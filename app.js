@@ -1082,7 +1082,8 @@ app.post("/generate-video-content", async (req, res) => {
 // Progress tracking için yeni endpoint
 app.get("/generate-video-content-stream/:questionId", async (req, res) => {
   const questionId = req.params.questionId;
-  const voiceCharacter = req.query.voice || "rachel"; // URL parametresinden ses karakterini al
+  const voiceId = req.query.voiceId || "brian"; // URL parametresinden ses ID'sini al
+  const language = req.query.language || "en"; // URL parametresinden dil kodu al
 
   // SSE headers
   res.writeHead(200, {
@@ -1115,6 +1116,24 @@ app.get("/generate-video-content-stream/:questionId", async (req, res) => {
       return;
     }
 
+    // Dil ayarları
+    const languageSettings = {
+      tr: { name: "Turkish", instruction: "Write ALL content in Turkish. Use Turkish language for all explanations, steps, title, description, and keywords." },
+      en: { name: "English", instruction: "Write ALL content in English." },
+      de: { name: "German", instruction: "Write ALL content in German. Use German language for all explanations, steps, title, description, and keywords." },
+      fr: { name: "French", instruction: "Write ALL content in French. Use French language for all explanations, steps, title, description, and keywords." },
+      es: { name: "Spanish", instruction: "Write ALL content in Spanish. Use Spanish language for all explanations, steps, title, description, and keywords." },
+      it: { name: "Italian", instruction: "Write ALL content in Italian. Use Italian language for all explanations, steps, title, description, and keywords." },
+      pt: { name: "Portuguese", instruction: "Write ALL content in Portuguese. Use Portuguese language for all explanations, steps, title, description, and keywords." },
+      ja: { name: "Japanese", instruction: "Write ALL content in Japanese. Use Japanese language for all explanations, steps, title, description, and keywords." },
+      ko: { name: "Korean", instruction: "Write ALL content in Korean. Use Korean language for all explanations, steps, title, description, and keywords." },
+      zh: { name: "Chinese", instruction: "Write ALL content in Chinese. Use Chinese language for all explanations, steps, title, description, and keywords." },
+      ru: { name: "Russian", instruction: "Write ALL content in Russian. Use Russian language for all explanations, steps, title, description, and keywords." },
+      ar: { name: "Arabic", instruction: "Write ALL content in Arabic. Use Arabic language for all explanations, steps, title, description, and keywords." },
+    };
+
+    const selectedLanguage = languageSettings[language] || languageSettings["en"];
+
     // Adım 1: AI ile içerik oluşturma
     sendProgress(0, 10, "AI ile içerik oluşturuluyor...");
 
@@ -1122,6 +1141,8 @@ app.get("/generate-video-content-stream/:questionId", async (req, res) => {
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     const prompt = `
+        ${selectedLanguage.instruction}
+
         Create YouTube video content for the following StackOverflow question and answer:
 
         QUESTION TITLE: ${question.title}
@@ -1131,40 +1152,37 @@ app.get("/generate-video-content-stream/:questionId", async (req, res) => {
 
         Please respond using the following format:
 
-        VIDEO_TITLE: [English, SEO-friendly, searchable video title]
-        DESCRIPTION: [Short SEO description including keywords from video title]
-        KEYWORDS: [5 keywords of 1-3 words each, comma separated]
+        VIDEO_TITLE: [SEO-friendly, searchable video title in ${selectedLanguage.name}]
+        DESCRIPTION: [Short SEO description including keywords from video title in ${selectedLanguage.name}]
+        KEYWORDS: [5 keywords of 1-3 words each, comma separated, in ${selectedLanguage.name}]
         STEPS:
-        1. [Direct explanation as if teaching someone - explain what the problem is]
-        2. [Show the solution with actual code - MUST include CODE_BLOCK with code]
-        3. [Explain how the code works]
+        1. [Direct explanation as if teaching someone - explain what the problem is, in ${selectedLanguage.name}]
+        2. [Show the solution with actual code - MUST include CODE_BLOCK with code, in ${selectedLanguage.name}]
+        3. [Explain how the code works, in ${selectedLanguage.name}]
         ...
 
         CRITICAL TTS OPTIMIZATION RULES:
-        - Write ALL explanations as if you're speaking directly to someone
-        - Use simple, conversational language that sounds natural when spoken aloud
-        - Avoid complex technical jargon - explain in plain English
+        - Write ALL explanations as if you're speaking directly to someone in ${selectedLanguage.name}
+        - Use simple, conversational language that sounds natural when spoken aloud in ${selectedLanguage.name}
+        - Avoid complex technical jargon - explain in plain ${selectedLanguage.name}
         - Use short, clear sentences (maximum 15-20 words per sentence)
-        - Replace symbols and special characters with spoken words:
-          * Use "equals" instead of "="
-          * Use "plus" instead of "+"
-          * Use "function" instead of just mentioning function names with parentheses
-          * Use "variable" or "property" instead of just naming variables
-        - When mentioning code elements, speak them naturally:
-          * "We create a variable called user name" instead of "We create userName"
-          * "We call the get data function" instead of "We call getData()"
-          * "We use the dot notation to access the length property" instead of "We use .length"
-        - Avoid abbreviations - spell them out (API becomes "A P I", HTML becomes "H T M L")
-        - Use transition words: "First", "Next", "Then", "Finally", "Now"
+        - Replace symbols and special characters with spoken words in ${selectedLanguage.name}:
+          * Use the ${selectedLanguage.name} equivalent of "equals" instead of "="
+          * Use the ${selectedLanguage.name} equivalent of "plus" instead of "+"
+          * Use the ${selectedLanguage.name} equivalent of "function" instead of just mentioning function names with parentheses
+          * Use the ${selectedLanguage.name} equivalent of "variable" or "property" instead of just naming variables
+        - When mentioning code elements, speak them naturally in ${selectedLanguage.name}
+        - Avoid abbreviations - spell them out in ${selectedLanguage.name} (API, HTML, etc.)
+        - Use transition words appropriate to ${selectedLanguage.name}: "First", "Next", "Then", "Finally", "Now"
         - End sentences with natural pauses in mind
 
         IMPORTANT RULES:
-        - Each step should be 1-2 sentences maximum
+        - Each step should be 1-2 sentences maximum in ${selectedLanguage.name}
         - DO NOT give video creation tips or suggestions
-        - Focus ONLY on explaining the programming concept/solution
+        - Focus ONLY on explaining the programming concept/solution in ${selectedLanguage.name}
         - ALWAYS include actual code examples using CODE_BLOCK format
-        - Explain the solution step by step as if teaching directly to the viewer
-        - Do not say "how to" - just explain what the code does
+        - Explain the solution step by step as if teaching directly to the viewer in ${selectedLanguage.name}
+        - Do not say "how to" - just explain what the code does in ${selectedLanguage.name}
         - For EVERY step that involves code, include a CODE_BLOCK showing that specific part
         - Show code progression step by step - each step should have its own CODE_BLOCK if code changes
         - Break down complex solutions into multiple steps with individual code blocks
@@ -1174,14 +1192,14 @@ app.get("/generate-video-content-stream/:questionId", async (req, res) => {
         - Each step that introduces new code or modifies existing code MUST have its own CODE_BLOCK
         - Show the complete working code at the end
 
-        Example format for TTS-optimized progressive code explanation:
-        Step 1: First, we create a basic structure to hold our data.
+        Example format for TTS-optimized progressive code explanation in ${selectedLanguage.name}:
+        Step 1: [First step explanation in ${selectedLanguage.name}]
         CODE_BLOCK:
         \`\`\`javascript
         const basicStructure = {};
         \`\`\`
 
-        Step 2: Next, we add a main function that returns a result.
+        Step 2: [Next step explanation in ${selectedLanguage.name}]
         CODE_BLOCK:
         \`\`\`javascript
         const basicStructure = {
@@ -1191,7 +1209,7 @@ app.get("/generate-video-content-stream/:questionId", async (req, res) => {
         };
         \`\`\`
 
-        OUTRO: [Short closing statement about the solution, ask viewers to like and subscribe - maximum 1 sentence, TTS-friendly]
+        OUTRO: [Short closing statement about the solution in ${selectedLanguage.name}, ask viewers to like and subscribe - maximum 1 sentence, TTS-friendly]
         `;
 
     const result = await model.generateContent(prompt);
@@ -1213,7 +1231,6 @@ app.get("/generate-video-content-stream/:questionId", async (req, res) => {
 
     // Adım 6: TTS seslendirme oluşturma
     sendProgress(5, 85, "Seslendirme oluşturuluyor...");
-    const voiceId = "brian"; // Sabit Coqui TTS sesi kullan
     const stepsWithTTS = await processStepsWithTTS(processedSteps, questionId, voiceId, sendProgress);
 
     // Adım 7: Thumbnail oluşturma
@@ -2180,6 +2197,61 @@ const VOICE_CHARACTERS = {
   voice5: "kpiE5HkOcaC7zMRavpg1", // Ses 5
 };
 
+// ElevenLabs API key dosya yolları
+const ELEVENLABS_APIS_FILE = path.join(__dirname, "data", "elevenlabs_apis.json");
+
+// ElevenLabs API key'lerini yükle
+async function loadElevenLabsAPIs() {
+  try {
+    const data = await fs.readFile(ELEVENLABS_APIS_FILE, "utf8");
+    return JSON.parse(data);
+  } catch {
+    return [];
+  }
+}
+
+// ElevenLabs API key'lerini kaydet
+async function saveElevenLabsAPIs(apis) {
+  await ensureDataDir();
+  await fs.writeFile(ELEVENLABS_APIS_FILE, JSON.stringify(apis, null, 2));
+}
+
+// ElevenLabs TTS için ses karakterleri
+const ELEVENLABS_VOICES = {
+  rachel: {
+    id: "21m00Tcm4TlvDq8ikWAM", // Rachel - Default
+    name: "Rachel (American Female)",
+    language: "en",
+    type: "elevenlabs",
+    gender: "female",
+    description: "American English, young adult female",
+  },
+  drew: {
+    id: "29vD33N1CtxCmqQRPOHJ", // Drew - Default
+    name: "Drew (American Male)",
+    language: "en",
+    type: "elevenlabs",
+    gender: "male",
+    description: "American English, middle-aged male",
+  },
+  clyde: {
+    id: "2EiwWnXFnvU5JabPnv8n", // Clyde - Default
+    name: "Clyde (American Male)",
+    language: "en",
+    type: "elevenlabs",
+    gender: "male",
+    description: "American English, middle-aged male",
+  },
+  antoni: {
+    id: "ErXwobaYiN019PkySvjV", // Antoni - Default
+    name: "Antoni (American Male)",
+    language: "en",
+    type: "elevenlabs",
+    gender: "male",
+    description: "American English, young adult male",
+  },
+};
+
 // TTS için metin temizleme fonksiyonu
 function cleanTextForTTS(text) {
   const originalText = text;
@@ -2250,6 +2322,7 @@ const COQUI_TTS_VOICES = {
 const ALL_TTS_VOICES = {
   ...GOOGLE_TTS_VOICES,
   ...COQUI_TTS_VOICES,
+  ...ELEVENLABS_VOICES,
 };
 
 // Coqui TTS fonksiyonu - xtts_v2 modeli ile
@@ -2346,20 +2419,24 @@ except Exception as e:
     return new Promise((resolve, reject) => {
       console.log("Python script ile Coqui TTS çalıştırılıyor...");
 
-      // Python script'i çalıştır
-      const pythonProcess = spawn("python3.10", [scriptPath], {
+      // Python script'i çalıştır - python3.10 yerine python dene
+      const pythonProcess = spawn("python", [scriptPath], {
         stdio: ["pipe", "pipe", "pipe"],
+        shell: true, // Windows için shell kullan
       });
 
       let stdout = "";
       let stderr = "";
+      let isTimedOut = false;
 
       pythonProcess.stdout.on("data", (data) => {
         stdout += data.toString();
+        console.log("Python stdout:", data.toString().trim());
       });
 
       pythonProcess.stderr.on("data", (data) => {
         stderr += data.toString();
+        console.log("Python stderr:", data.toString().trim());
       });
 
       pythonProcess.on("close", (code) => {
@@ -2367,6 +2444,11 @@ except Exception as e:
         try {
           fsSync.unlinkSync(scriptPath);
         } catch (e) {}
+
+        if (isTimedOut) {
+          console.log("Process was killed due to timeout");
+          return;
+        }
 
         console.log("Python process tamamlandı, exit code:", code);
         console.log("Stdout:", stdout);
@@ -2392,15 +2474,22 @@ except Exception as e:
         resolve(null);
       });
 
-      // 60 saniye timeout
-      setTimeout(() => {
-        pythonProcess.kill();
-        console.error("Coqui TTS timeout");
+      // 120 saniye timeout (2 dakika)
+      const timeoutHandle = setTimeout(() => {
+        isTimedOut = true;
+        console.error("Coqui TTS timeout (120s)");
+        pythonProcess.kill("SIGTERM");
+
+        // 5 saniye sonra force kill
+        setTimeout(() => {
+          pythonProcess.kill("SIGKILL");
+        }, 5000);
+
         try {
           fsSync.unlinkSync(scriptPath);
         } catch (e) {}
         resolve(null);
-      }, 60000);
+      }, 120000);
     });
   } catch (error) {
     console.error("Coqui TTS oluşturma hatası:", error.message);
@@ -2460,23 +2549,6 @@ async function generateGoogleTTS(text, voiceId, questionId, stepIndex) {
       console.error("Data:", error.response.data);
     }
     return null;
-  }
-}
-
-// Birleşik TTS fonksiyonu - hem Google hem Coqui destekler
-async function generateTTS(text, voiceId = "en-US-Neural2-J", questionId, stepIndex) {
-  const voice = ALL_TTS_VOICES[voiceId];
-
-  if (!voice) {
-    console.error("Geçersiz ses ID:", voiceId);
-    return null;
-  }
-
-  // Ses tipine göre uygun TTS fonksiyonunu çağır
-  if (voice.type === "coqui") {
-    return await generateCoquiTTS(text, voiceId, questionId, stepIndex);
-  } else {
-    return await generateGoogleTTS(text, voiceId, questionId, stepIndex);
   }
 }
 
@@ -2543,12 +2615,21 @@ app.get("/api/tts-voices", (req, res) => {
       provider: "Coqui AI TTS",
     }));
 
+    const elevenlabsVoices = Object.entries(ELEVENLABS_VOICES).map(([key, voice]) => ({
+      id: voice.id, // h061KGyOtpLYDxcoi8E3 (gerçek voice ID - frontend için)
+      backendKey: key, // ravi (backend için)
+      label: voice.name, // Frontend için label ekle
+      ...voice,
+      provider: "ElevenLabs TTS",
+    }));
+
     res.json({
       success: true,
       voices: {
         google: googleVoices,
         coqui: coquiVoices,
-        all: [...googleVoices, ...coquiVoices],
+        elevenlabs: elevenlabsVoices,
+        all: [...googleVoices, ...coquiVoices, ...elevenlabsVoices],
       },
     });
   } catch (error) {
@@ -2562,7 +2643,7 @@ app.get("/api/tts-voices", (req, res) => {
 // Coqui TTS test endpoint'i
 app.post("/api/test-coqui-tts", async (req, res) => {
   try {
-    const { text = "Hello, this is a test of Coqui TTS.", voiceId = "brian" } = req.body;
+    const { text = "Hello, this is a test", voiceId = "brian" } = req.body;
 
     if (!text || text.trim().length < 3) {
       return res.status(400).json({
@@ -2585,6 +2666,364 @@ app.post("/api/test-coqui-tts", async (req, res) => {
         error: "Coqui TTS oluşturulamadı",
       });
     }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+// ElevenLabs TTS fonksiyonu
+async function generateElevenLabsTTS(text, voiceId, questionId, stepIndex) {
+  try {
+    const cleanText = cleanTextForTTS(text);
+    if (!cleanText || cleanText.length < 3) {
+      console.log("Metin çok kısa, ElevenLabs TTS atlanıyor:", cleanText);
+      return null;
+    }
+
+    const voice = ELEVENLABS_VOICES[voiceId];
+    if (!voice) {
+      console.error("Geçersiz ElevenLabs ses ID:", voiceId);
+      return null;
+    }
+
+    // API key'leri yükle
+    const apis = await loadElevenLabsAPIs();
+    if (apis.length === 0) {
+      console.error("ElevenLabs API key bulunamadı");
+      return null;
+    }
+
+    // İlk aktif API key'i kullan
+    const activeAPI = apis.find((api) => api.active !== false) || apis[0];
+
+    // ElevenLabs TTS API çağrısı
+    const url = `${ELEVENLABS_API_URL}/text-to-speech/${voice.id}`;
+
+    const requestBody = {
+      text: cleanText,
+      model_id: "eleven_multilingual_v2",
+      voice_settings: {
+        stability: 0.5,
+        similarity_boost: 0.5,
+        style: 0.0,
+        use_speaker_boost: true,
+      },
+    };
+
+    const response = await axios.post(url, requestBody, {
+      headers: {
+        Accept: "audio/mpeg",
+        "Content-Type": "application/json",
+        "xi-api-key": activeAPI.key,
+      },
+      responseType: "arraybuffer",
+    });
+
+    if (response.status !== 200) {
+      console.error("ElevenLabs API hatası:", response.status, response.statusText);
+      return null;
+    }
+
+    // Audio dosyasını kaydet
+    const audioDir = path.join(__dirname, "public", "audio");
+    if (!fsSync.existsSync(audioDir)) {
+      fsSync.mkdirSync(audioDir, { recursive: true });
+    }
+
+    const fileName = `elevenlabs_audio_${questionId}_step_${stepIndex}_${Date.now()}.mp3`;
+    const filePath = path.join(audioDir, fileName);
+
+    fsSync.writeFileSync(filePath, Buffer.from(response.data));
+    console.log(`ElevenLabs TTS başarıyla oluşturuldu: ${fileName}`);
+
+    return `/audio/${fileName}`;
+  } catch (error) {
+    console.error("ElevenLabs TTS oluşturma hatası:", error.message);
+    if (error.response) {
+      console.error("Status:", error.response.status);
+      console.error("Data:", error.response.data);
+
+      // ElevenLabs API hata mesajlarını decode et
+      if (error.response.data) {
+        try {
+          const errorData = Buffer.isBuffer(error.response.data) ? JSON.parse(error.response.data.toString()) : error.response.data;
+
+          if (errorData.detail?.status === "voice_limit_reached") {
+            console.error("ElevenLabs voice limit reached:", errorData.detail.message);
+            return null; // Voice limit dolmuş, null döndür
+          } else if (errorData.detail?.status === "quota_exceeded") {
+            console.error("ElevenLabs quota exceeded:", errorData.detail.message);
+            return null;
+          } else if (errorData.detail?.message) {
+            console.error("ElevenLabs API Error:", errorData.detail.message);
+            return null;
+          }
+        } catch (parseError) {
+          console.error("Error parsing ElevenLabs response:", parseError);
+        }
+      }
+    }
+    return null;
+  }
+}
+
+// ElevenLabs TTS test endpoint'i
+app.post("/api/test-elevenlabs-tts", async (req, res) => {
+  try {
+    const { text = "This is a test", voiceId = "rachel" } = req.body;
+
+    if (!text || text.trim().length < 3) {
+      return res.status(400).json({
+        success: false,
+        error: "Metin çok kısa",
+      });
+    }
+
+    // VoiceId mapping - frontend'ten gelen ID'yi backend key'ine çevir
+    let actualVoiceId = voiceId;
+
+    // Eğer gerçek voice ID gelirse (h061KGyOtpLYDxcoi8E3), backend key'ini bul
+    const elevenlabsVoiceEntry = Object.entries(ELEVENLABS_VOICES).find(([key, voiceData]) => voiceData.id === voiceId);
+    if (elevenlabsVoiceEntry) {
+      actualVoiceId = elevenlabsVoiceEntry[0]; // backend key'ini kullan (ravi)
+    }
+
+    console.log(`ElevenLabs test: frontend voiceId=${voiceId}, backend actualVoiceId=${actualVoiceId}`);
+
+    const audioPath = await generateElevenLabsTTS(text, actualVoiceId, "test", 0);
+
+    if (audioPath) {
+      res.json({
+        success: true,
+        audioPath: audioPath,
+        message: "ElevenLabs TTS başarıyla çalıştı",
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: "ElevenLabs TTS oluşturulamadı - Voice limit dolmuş olabilir veya API key kontrol edin",
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+// ElevenLabs API key'lerini listeleme
+app.get("/api/elevenlabs-apis", async (req, res) => {
+  try {
+    const apis = await loadElevenLabsAPIs();
+    // Güvenlik için API key'leri maskeleyerek döndür
+    const maskedAPIs = apis.map((api, index) => ({
+      id: index,
+      name: api.name || `API ${index + 1}`,
+      keyPreview: api.key ? `${api.key.substring(0, 8)}...` : "Yok",
+      active: api.active !== false,
+      addedAt: api.addedAt || new Date().toISOString(),
+    }));
+
+    res.json({
+      success: true,
+      apis: maskedAPIs,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+// ElevenLabs API key ekleme
+app.post("/api/elevenlabs-apis", async (req, res) => {
+  try {
+    const { name, key } = req.body;
+
+    if (!name || !key) {
+      return res.status(400).json({
+        success: false,
+        error: "İsim ve API key gerekli",
+      });
+    }
+
+    // API key formatını kontrol et
+    if (!key.startsWith("sk_")) {
+      return res.status(400).json({
+        success: false,
+        error: "Geçersiz ElevenLabs API key formatı",
+      });
+    }
+
+    const apis = await loadElevenLabsAPIs();
+
+    // Yeni API ekle
+    const newAPI = {
+      name: name.trim(),
+      key: key.trim(),
+      active: true,
+      addedAt: new Date().toISOString(),
+    };
+
+    apis.push(newAPI);
+    await saveElevenLabsAPIs(apis);
+
+    res.json({
+      success: true,
+      message: "API key başarıyla eklendi",
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+// ElevenLabs API key silme
+app.delete("/api/elevenlabs-apis/:id", async (req, res) => {
+  try {
+    const apiId = parseInt(req.params.id);
+    const apis = await loadElevenLabsAPIs();
+
+    if (apiId < 0 || apiId >= apis.length) {
+      return res.status(404).json({
+        success: false,
+        error: "API bulunamadı",
+      });
+    }
+
+    apis.splice(apiId, 1);
+    await saveElevenLabsAPIs(apis);
+
+    res.json({
+      success: true,
+      message: "API key başarıyla silindi",
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+// ElevenLabs API key aktif/pasif durumu değiştirme
+app.patch("/api/elevenlabs-apis/:id", async (req, res) => {
+  try {
+    const apiId = parseInt(req.params.id);
+    const { active } = req.body;
+    const apis = await loadElevenLabsAPIs();
+
+    if (apiId < 0 || apiId >= apis.length) {
+      return res.status(404).json({
+        success: false,
+        error: "API bulunamadı",
+      });
+    }
+
+    apis[apiId].active = active;
+    await saveElevenLabsAPIs(apis);
+
+    res.json({
+      success: true,
+      message: "API durumu güncellendi",
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+async function generateTTS(text, voiceId = "en-US-Neural2-J", questionId, stepIndex) {
+  let voice = ALL_TTS_VOICES[voiceId];
+  let actualVoiceId = voiceId;
+
+  // ElevenLabs gerçek voice ID'si geldiğinde backend key'ini bul
+  if (!voice) {
+    // ElevenLabs voice ID'si için backend key'ini ara
+    const elevenlabsVoiceEntry = Object.entries(ELEVENLABS_VOICES).find(([key, voiceData]) => voiceData.id === voiceId);
+    if (elevenlabsVoiceEntry) {
+      const [backendKey, voiceData] = elevenlabsVoiceEntry;
+      voice = voiceData;
+      actualVoiceId = backendKey; // ravi gibi backend key'ini kullan
+    }
+  }
+
+  if (!voice) {
+    console.error("Geçersiz ses ID:", voiceId);
+    return null;
+  }
+
+  // Ses tipine göre uygun TTS fonksiyonunu çağır
+  if (voice.type === "coqui") {
+    return await generateCoquiTTS(text, actualVoiceId, questionId, stepIndex);
+  } else if (voice.type === "elevenlabs") {
+    return await generateElevenLabsTTS(text, actualVoiceId, questionId, stepIndex);
+  } else {
+    return await generateGoogleTTS(text, actualVoiceId, questionId, stepIndex);
+  }
+}
+
+// ElevenLabs kullanıcı bilgileri ve limit sorgulama
+app.get("/api/elevenlabs-user-info", async (req, res) => {
+  try {
+    const apis = await loadElevenLabsAPIs();
+    const activeAPIs = apis.filter((api) => api.active !== false);
+
+    if (activeAPIs.length === 0) {
+      return res.json({
+        success: false,
+        error: "Aktif API key bulunamadı",
+      });
+    }
+
+    const results = [];
+
+    for (const api of activeAPIs) {
+      try {
+        const userResponse = await axios.get("https://api.elevenlabs.io/v1/user", {
+          headers: {
+            "xi-api-key": api.key,
+            "Content-Type": "application/json",
+          },
+        });
+
+        const subscriptionResponse = await axios.get("https://api.elevenlabs.io/v1/user/subscription", {
+          headers: {
+            "xi-api-key": api.key,
+            "Content-Type": "application/json",
+          },
+        });
+
+        results.push({
+          name: api.name,
+          keyPreview: `${api.key.substring(0, 8)}...`,
+          user: userResponse.data,
+          subscription: subscriptionResponse.data,
+          status: "active",
+        });
+      } catch (error) {
+        results.push({
+          name: api.name,
+          keyPreview: `${api.key.substring(0, 8)}...`,
+          error: error.response?.status === 401 ? "Invalid API Key" : error.message,
+          status: "error",
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      apis: results,
+    });
   } catch (error) {
     res.status(500).json({
       success: false,
