@@ -649,64 +649,10 @@ function analyzeCodeComplexity(code) {
   return complexityScore;
 }
 
-// Kod formatını düzelten gelişmiş fonksiyon
-function formatCode(code) {
-  if (!code) return "";
-
-  // Satırları ayır
-  let lines = code.split("\n");
-
-  // Boş satırları temizle (başta ve sonda)
-  while (lines.length > 0 && lines[0].trim() === "") {
-    lines.shift();
-  }
-  while (lines.length > 0 && lines[lines.length - 1].trim() === "") {
-    lines.pop();
-  }
-
-  if (lines.length === 0) return "";
-
-  // JavaScript kod formatı için akıllı indentasyon
-  const formattedLines = [];
-  let indentLevel = 0;
-  const indentSize = 2; // 2 boşluk kullan
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-
-    if (line === "") {
-      formattedLines.push("");
-      continue;
-    }
-
-    // Kapanış parantezleri için indent seviyesini azalt
-    if (line.startsWith("}") || line.startsWith("]") || line.startsWith(")") || line.includes("} else {") || line.includes("} catch") || line.includes("} finally")) {
-      indentLevel = Math.max(0, indentLevel - 1);
-    }
-
-    // Satırı indent ile ekle
-    const indentedLine = " ".repeat(indentLevel * indentSize) + line;
-    formattedLines.push(indentedLine);
-
-    // Açılış parantezleri için indent seviyesini artır
-    if (line.includes("{") && !line.includes("}")) {
-      indentLevel++;
-    }
-
-    // Özel durumlar
-    if (line.includes("} else {") || line.includes("} catch") || line.includes("} finally")) {
-      indentLevel++;
-    }
-
-    // Array ve object açılışları
-    if ((line.includes("[") && !line.includes("]")) || (line.includes("(") && !line.includes(")") && line.includes("function"))) {
-      // Bu durumlar için indent artırma zaten yukarıda yapılıyor
-    }
-  }
-
-  return formattedLines.join("\n");
-}
-
+// Kod formatını düzelten gelişmiş fonksiyon - KULLANILMIYOR, SİLİNDİ
+// function formatCode(code) {
+//   Bu fonksiyon orijinal indentasyonu bozduğu için kaldırıldı
+// }
 // fetchRSSData fonksiyonu: son çekilen id'yi kategori+mod'a göre oku/kaydet
 async function fetchRSSData(category, limit = 5, sortBy = "votes") {
   try {
@@ -1028,6 +974,10 @@ app.post("/generate-video-content", async (req, res) => {
         - Include multiple CODE_BLOCK sections showing the solution step by step
         - Each step that introduces new code or modifies existing code MUST have its own CODE_BLOCK
         - Show the complete working code at the end
+        - CRITICAL: All code in CODE_BLOCK must be properly indented with spaces or tabs
+        - Use consistent indentation (2 or 4 spaces) throughout the code
+        - Maintain proper code structure and formatting as if written in a real IDE
+        - Do NOT flatten the code - preserve nested structure with proper indentation
 
         Example format for TTS-optimized progressive code explanation:
         Step 1: First, we create a basic structure to hold our data.
@@ -1191,6 +1141,10 @@ app.get("/generate-video-content-stream/:questionId", async (req, res) => {
         - Include multiple CODE_BLOCK sections showing the solution step by step
         - Each step that introduces new code or modifies existing code MUST have its own CODE_BLOCK
         - Show the complete working code at the end
+        - CRITICAL: All code in CODE_BLOCK must be properly indented with spaces or tabs
+        - Use consistent indentation (2 or 4 spaces) throughout the code
+        - Maintain proper code structure and formatting as if written in a real IDE
+        - Do NOT flatten the code - preserve nested structure with proper indentation
 
         Example format for TTS-optimized progressive code explanation in ${selectedLanguage.name}:
         Step 1: [First step explanation in ${selectedLanguage.name}]
@@ -1278,27 +1232,28 @@ function parseGeminiResponse(text) {
   let codeBlockContent = "";
 
   for (let i = 0; i < lines.length; i++) {
-    let line = lines[i].trim();
+    let line = lines[i]; // trim() yapmıyoruz, orijinal satırı koruyoruz
+    let trimmedLine = line.trim(); // sadece kontrol için trim'li versiyonu kullanıyoruz
 
-    console.log(`Line ${i}: "${line}"`);
+    console.log(`Line ${i}: "${trimmedLine}"`);
 
-    if (line.startsWith("VIDEO_TITLE:")) {
-      title = line.replace("VIDEO_TITLE:", "").trim();
+    if (trimmedLine.startsWith("VIDEO_TITLE:")) {
+      title = trimmedLine.replace("VIDEO_TITLE:", "").trim();
       console.log("Found title:", title);
-    } else if (line.startsWith("DESCRIPTION:")) {
-      description = line.replace("DESCRIPTION:", "").trim();
+    } else if (trimmedLine.startsWith("DESCRIPTION:")) {
+      description = trimmedLine.replace("DESCRIPTION:", "").trim();
       console.log("Found description:", description);
-    } else if (line.startsWith("KEYWORDS:")) {
-      const keywordText = line.replace("KEYWORDS:", "").trim();
+    } else if (trimmedLine.startsWith("KEYWORDS:")) {
+      const keywordText = trimmedLine.replace("KEYWORDS:", "").trim();
       keywords = keywordText
         .split(",")
         .map((k) => k.trim())
         .filter((k) => k);
       console.log("Found keywords:", keywords);
-    } else if (line.startsWith("STEPS:")) {
+    } else if (trimmedLine.startsWith("STEPS:")) {
       currentSection = "steps";
       console.log("Started steps section");
-    } else if (line.startsWith("OUTRO:")) {
+    } else if (trimmedLine.startsWith("OUTRO:")) {
       // Önceki adımı kaydet
       if (currentStep) {
         const hasCode = currentStep.includes("CODE_BLOCK:");
@@ -1308,14 +1263,14 @@ function parseGeminiResponse(text) {
       }
 
       // OUTRO adımını ekle
-      const outroText = line.replace("OUTRO:", "").trim();
+      const outroText = trimmedLine.replace("OUTRO:", "").trim();
       if (outroText && outroText.length > 0) {
         steps.push({ text: outroText, hasCode: false, isOutro: true });
         console.log("Added outro:", outroText);
       }
     } else if (currentSection === "steps") {
       // Adım numarası ile başlıyorsa
-      if (line.match(/^\d+\./)) {
+      if (trimmedLine.match(/^\d+\./)) {
         // Önceki adımı kaydet
         if (currentStep && currentStep.trim().length > 0) {
           const hasCode = currentStep.includes("CODE_BLOCK:");
@@ -1323,26 +1278,26 @@ function parseGeminiResponse(text) {
           console.log("Added step:", { text: currentStep, hasCode: hasCode });
         }
 
-        currentStep = line.replace(/^\d+\./, "").trim();
+        currentStep = trimmedLine.replace(/^\d+\./, "").trim();
         console.log("Started new step:", currentStep);
       }
       // CODE_BLOCK başlangıcı
-      else if (line.includes("CODE_BLOCK:")) {
+      else if (trimmedLine.includes("CODE_BLOCK:")) {
         currentStep += "\nCODE_BLOCK:";
         collectingCodeBlock = true;
         console.log("Found CODE_BLOCK start");
       }
-      // Kod bloğu içeriği
+      // Kod bloğu içeriği - ORIJINAL SATIRI KULLAN (indentasyonu koru)
       else if (collectingCodeBlock) {
-        currentStep += "\n" + line;
-        if (line.includes("```") && !line.startsWith("```")) {
+        currentStep += "\n" + line; // trim edilmemiş orijinal satır
+        if (trimmedLine.includes("```") && !trimmedLine.startsWith("```")) {
           collectingCodeBlock = false;
           console.log("CODE_BLOCK ended");
         }
       }
       // Normal adım devamı
-      else if (line && !line.startsWith("```")) {
-        currentStep += " " + line;
+      else if (trimmedLine && !trimmedLine.startsWith("```")) {
+        currentStep += " " + trimmedLine;
       }
     }
   }
@@ -1418,15 +1373,28 @@ async function processCodeBlocksWithProgress(steps, questionId, sendProgress) {
           while (codeLines.length > 0 && codeLines[codeLines.length - 1].trim() === "") codeLines.pop();
           code = codeLines.join("\n");
 
-          // Eğer kodun tamamı tek satırsa veya tüm satırlar aynı seviyede ise formatCode uygula, aksi halde olduğu gibi bırak
-          const allLines = code.split("\n");
-          const allIndents = allLines.map((l) => l.match(/^\s*/)[0].length);
-          const uniqueIndents = new Set(allIndents);
-          if (allLines.length === 1 || uniqueIndents.size === 1) {
-            code = formatCode(code);
+          // Minimum indentasyonu bul ve normalize et (leading whitespace'i koru)
+          const nonEmptyLines = codeLines.filter((line) => line.trim() !== "");
+          if (nonEmptyLines.length > 0) {
+            const minIndent = Math.min(
+              ...nonEmptyLines.map((line) => {
+                const match = line.match(/^\s*/);
+                return match ? match[0].length : 0;
+              })
+            );
+
+            // Minimum indentasyonu çıkar (relative indentasyonu koru)
+            if (minIndent > 0) {
+              code = codeLines
+                .map((line) => {
+                  if (line.trim() === "") return line; // Boş satırları olduğu gibi bırak
+                  return line.substring(minIndent);
+                })
+                .join("\n");
+            }
           }
 
-          console.log(`Formatted code: ${code}`);
+          console.log(`Processed code (preserved formatting): ${code}`);
 
           const timestamp = Date.now();
           const fileName = `example.js`;
@@ -1442,6 +1410,9 @@ async function processCodeBlocksWithProgress(steps, questionId, sendProgress) {
           // Kodu dosyaya yaz
           fsSync.writeFileSync(filePath, code);
           console.log(`Code written to file: ${filePath}`);
+          console.log("=== ACTUAL CODE CONTENT ===");
+          console.log(JSON.stringify(code)); // JSON.stringify ile whitespace'leri görebiliriz
+          console.log("=== END CODE CONTENT ===");
 
           // Carbon-now-cli ile görsel oluştur - headless mod ile
           const imageName = `code_${questionId}_${i}_${timestamp}`;
@@ -2218,6 +2189,30 @@ async function saveElevenLabsAPIs(apis) {
 
 // ElevenLabs TTS için ses karakterleri
 const ELEVENLABS_VOICES = {
+  thomas: {
+    id: "GBv7mTt0atIp3Br8iCZE", // Thomas
+    name: "Thomas (American Male)",
+    language: "en",
+    type: "elevenlabs",
+    gender: "male",
+    description: "American English, clear voice male",
+  },
+  freya: {
+    id: "jsCqWAovK2LkecY7zXl4", // Freya
+    name: "Freya (American Female)",
+    language: "en",
+    type: "elevenlabs",
+    gender: "female",
+    description: "American English, clear voice female",
+  },
+  domi: {
+    id: "AZnzlk1XvdvUeBnXmlld", // Domi
+    name: "Domi (American Female)",
+    language: "en",
+    type: "elevenlabs",
+    gender: "female",
+    description: "American English, warm voice female",
+  },
   rachel: {
     id: "21m00Tcm4TlvDq8ikWAM", // Rachel - Default
     name: "Rachel (American Female)",
