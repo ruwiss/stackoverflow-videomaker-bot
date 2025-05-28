@@ -145,26 +145,11 @@
             <div class="card-body">
               <form id="generateForm">
                 <div class="mb-3">
-                  <label class="form-label"><i class="fas fa-microphone me-2"></i>Ses Karakteri</label>
-                  <select class="form-select" id="voiceSelect">
-                    <option value="en-US-Chirp3-HD-Aoede">Chirp3 HD - Aoede (Female)</option>
-                    <option value="en-US-Chirp3-HD-Puck">Chirp3 HD - Puck (Male)</option>
-                    <option value="en-US-Chirp3-HD-Charon">Chirp3 HD - Charon (Male)</option>
-                    <option value="en-US-Chirp3-HD-Kore">Chirp3 HD - Kore (Female)</option>
-                    <option value="en-US-Chirp3-HD-Fenrir">Chirp3 HD - Fenrir (Male)</option>
-                    <option value="en-US-Chirp3-HD-Leda">Chirp3 HD - Leda (Female)</option>
-                    <option value="en-US-Chirp3-HD-Orus">Chirp3 HD - Orus (Male)</option>
-                    <option value="en-US-Chirp3-HD-Zephyr">Chirp3 HD - Zephyr (Female)</option>
-                    <option value="en-US-Neural2-J">English (US) - Neural2 J (Male)</option>
-                    <option value="en-US-Neural2-I">English (US) - Neural2 I (Female)</option>
-                    <option value="en-US-Wavenet-D">English (US) - WaveNet D (Male)</option>
-                    <option value="en-US-Wavenet-F">English (US) - WaveNet F (Female)</option>
-                    <option value="en-GB-Neural2-A">English (UK) - Neural2 A (Male)</option>
-                    <option value="en-GB-Neural2-B">English (UK) - Neural2 B (Female)</option>
-                    <option value="en-AU-Neural2-A">English (AU) - Neural2 A (Male)</option>
-                    <option value="en-AU-Neural2-B">English (AU) - Neural2 B (Female)</option>
-                  </select>
-                  <div class="form-text">Seslendirme için kullanılacak AI ses karakteri</div>
+                  <label class="form-label"><i class="fas fa-microphone me-2"></i>Seslendirme</label>
+                  <div class="alert alert-info py-2 px-3 mb-0">
+                    <i class="fas fa-robot me-2"></i>
+                    <strong>Coqui AI TTS</strong> - Doğal ve kaliteli seslendirme <br /><small class="text-muted">Otomatik olarak en uygun ses karakteri seçilecek</small>
+                  </div>
                 </div>
                 <button type="submit" class="btn btn-success w-100 fw-medium"><i class="fas fa-magic me-2"></i>Video İçeriği Oluştur</button>
               </form>
@@ -313,8 +298,7 @@
 
         try {
           // Server-Sent Events ile progress takibi
-          const selectedVoice = document.getElementById("voiceSelect").value;
-          const eventSource = new EventSource(`/generate-video-content-stream/${questionId}?voice=${selectedVoice}`);
+          const eventSource = new EventSource(`/generate-video-content-stream/${questionId}`);
 
           eventSource.onmessage = function (event) {
             const data = JSON.parse(event.data);

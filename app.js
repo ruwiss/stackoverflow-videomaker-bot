@@ -10,10 +10,11 @@ const { exec } = require("child_process");
 const { promisify } = require("util");
 const { createCanvas, loadImage, registerFont } = require("canvas");
 const textToSpeech = require("@google-cloud/text-to-speech");
+const { spawn } = require("child_process");
 
 const app = express();
 const parser = new RSSParser();
-const PORT = 3000;
+const PORT = 3002;
 
 // View engine setup
 app.set("view engine", "ejs");
@@ -994,6 +995,24 @@ app.post("/generate-video-content", async (req, res) => {
         3. [Explain how the code works]
         ...
 
+        CRITICAL TTS OPTIMIZATION RULES:
+        - Write ALL explanations as if you're speaking directly to someone
+        - Use simple, conversational language that sounds natural when spoken aloud
+        - Avoid complex technical jargon - explain in plain English
+        - Use short, clear sentences (maximum 15-20 words per sentence)
+        - Replace symbols and special characters with spoken words:
+          * Use "equals" instead of "="
+          * Use "plus" instead of "+"
+          * Use "function" instead of just mentioning function names with parentheses
+          * Use "variable" or "property" instead of just naming variables
+        - When mentioning code elements, speak them naturally:
+          * "We create a variable called user name" instead of "We create userName"
+          * "We call the get data function" instead of "We call getData()"
+          * "We use the dot notation to access the length property" instead of "We use .length"
+        - Avoid abbreviations - spell them out (API becomes "A P I", HTML becomes "H T M L")
+        - Use transition words: "First", "Next", "Then", "Finally", "Now"
+        - End sentences with natural pauses in mind
+
         IMPORTANT RULES:
         - Each step should be 1-2 sentences maximum
         - DO NOT give video creation tips or suggestions
@@ -1010,14 +1029,14 @@ app.post("/generate-video-content", async (req, res) => {
         - Each step that introduces new code or modifies existing code MUST have its own CODE_BLOCK
         - Show the complete working code at the end
 
-        Example format for progressive code explanation:
-        Step 1: First we create the basic structure.
+        Example format for TTS-optimized progressive code explanation:
+        Step 1: First, we create a basic structure to hold our data.
         CODE_BLOCK:
         \`\`\`javascript
         const basicStructure = {};
         \`\`\`
 
-        Step 2: Then we add the main functionality.
+        Step 2: Next, we add a main function that returns a result.
         CODE_BLOCK:
         \`\`\`javascript
         const basicStructure = {
@@ -1026,6 +1045,8 @@ app.post("/generate-video-content", async (req, res) => {
           }
         };
         \`\`\`
+
+        OUTRO: [Short closing statement about the solution, ask viewers to like and subscribe - maximum 1 sentence, TTS-friendly]
         `;
 
     const result = await model.generateContent(prompt);
@@ -1119,6 +1140,24 @@ app.get("/generate-video-content-stream/:questionId", async (req, res) => {
         3. [Explain how the code works]
         ...
 
+        CRITICAL TTS OPTIMIZATION RULES:
+        - Write ALL explanations as if you're speaking directly to someone
+        - Use simple, conversational language that sounds natural when spoken aloud
+        - Avoid complex technical jargon - explain in plain English
+        - Use short, clear sentences (maximum 15-20 words per sentence)
+        - Replace symbols and special characters with spoken words:
+          * Use "equals" instead of "="
+          * Use "plus" instead of "+"
+          * Use "function" instead of just mentioning function names with parentheses
+          * Use "variable" or "property" instead of just naming variables
+        - When mentioning code elements, speak them naturally:
+          * "We create a variable called user name" instead of "We create userName"
+          * "We call the get data function" instead of "We call getData()"
+          * "We use the dot notation to access the length property" instead of "We use .length"
+        - Avoid abbreviations - spell them out (API becomes "A P I", HTML becomes "H T M L")
+        - Use transition words: "First", "Next", "Then", "Finally", "Now"
+        - End sentences with natural pauses in mind
+
         IMPORTANT RULES:
         - Each step should be 1-2 sentences maximum
         - DO NOT give video creation tips or suggestions
@@ -1135,14 +1174,14 @@ app.get("/generate-video-content-stream/:questionId", async (req, res) => {
         - Each step that introduces new code or modifies existing code MUST have its own CODE_BLOCK
         - Show the complete working code at the end
 
-        Example format for progressive code explanation:
-        Step 1: First we create the basic structure.
+        Example format for TTS-optimized progressive code explanation:
+        Step 1: First, we create a basic structure to hold our data.
         CODE_BLOCK:
         \`\`\`javascript
         const basicStructure = {};
         \`\`\`
 
-        Step 2: Then we add the main functionality.
+        Step 2: Next, we add a main function that returns a result.
         CODE_BLOCK:
         \`\`\`javascript
         const basicStructure = {
@@ -1152,7 +1191,7 @@ app.get("/generate-video-content-stream/:questionId", async (req, res) => {
         };
         \`\`\`
 
-        OUTRO: [Short closing statement about the solution, ask viewers to like and subscribe - maximum 1 sentence]
+        OUTRO: [Short closing statement about the solution, ask viewers to like and subscribe - maximum 1 sentence, TTS-friendly]
         `;
 
     const result = await model.generateContent(prompt);
@@ -1174,7 +1213,7 @@ app.get("/generate-video-content-stream/:questionId", async (req, res) => {
 
     // Adım 6: TTS seslendirme oluşturma
     sendProgress(5, 85, "Seslendirme oluşturuluyor...");
-    const voiceId = VOICE_CHARACTERS[voiceCharacter] || VOICE_CHARACTERS.brian; // Seçilen ses karakterini kullan (varsayılan Brian)
+    const voiceId = "brian"; // Sabit Coqui TTS sesi kullan
     const stepsWithTTS = await processStepsWithTTS(processedSteps, questionId, voiceId, sendProgress);
 
     // Adım 7: Thumbnail oluşturma
@@ -2160,27 +2199,10 @@ function cleanTextForTTS(text) {
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
     .replace(/&nbsp;/g, " ")
-    // Kod yapılarındaki parantezleri temizle (fonksiyon çağrıları, metodlar)
-    .replace(/\b([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\([^)]*\)/g, (match, funcName) => {
-      // Fonksiyon adından sonra parantez içindeki parametreleri kaldır
-      // Örnek: go(test) -> go test, is("test") -> is test
-      const params = match.match(/\(([^)]*)\)/)[1];
-      if (params.trim()) {
-        // Parametreleri temizle ve fonksiyon adıyla birleştir
-        const cleanParams = params
-          .replace(/["']/g, "") // Tırnakları kaldır
-          .replace(/,/g, " ") // Virgülleri boşlukla değiştir
-          .trim();
-        return cleanParams ? `${funcName} ${cleanParams}` : funcName;
-      }
-      return funcName;
-    })
     // Markdown temizleme
     .replace(/\*\*(.*?)\*\*/g, "$1") // Bold markdown
     .replace(/\*(.*?)\*/g, "$1") // Italic markdown
     .replace(/\[.*?\]/g, "") // Köşeli parantezleri kaldır
-    // Normal açıklayıcı parantezleri kaldır (kod yapıları temizlendikten sonra)
-    .replace(/\s*\([^)]*\)\s*/g, " ") // Kalan parantezleri kaldır
     .replace(/[#*_]/g, "") // Markdown karakterleri
     // Boşluk ve satır temizleme
     .replace(/\s+/g, " ") // Çoklu boşlukları tek boşluğa çevir
@@ -2214,19 +2236,190 @@ const GOOGLE_TTS_VOICES = {
   "en-AU-Neural2-B": { name: "en-AU-Neural2-B", label: "English (AU) - Neural2 B (Female)", gender: "FEMALE" },
 };
 
-// Google Cloud TTS fonksiyonu (İngilizce, en iyi sesler)
-async function generateTTS(text, voiceId = "en-US-Neural2-J", questionId, stepIndex) {
+// Coqui TTS için ses karakterleri - xtts_v2 modeli ile voice cloning yapılacak
+const COQUI_TTS_VOICES = {
+  brian: { name: "brian", label: "Brian (Male - Tech Narrator)", type: "coqui", model: "tts_models/multilingual/multi-dataset/xtts_v2" },
+  sarah: { name: "sarah", label: "Sarah (Female - Clear Voice)", type: "coqui", model: "tts_models/multilingual/multi-dataset/xtts_v2" },
+  alex: { name: "alex", label: "Alex (Male - Deep Voice)", type: "coqui", model: "tts_models/multilingual/multi-dataset/xtts_v2" },
+  emma: { name: "emma", label: "Emma (Female - Warm Voice)", type: "coqui", model: "tts_models/multilingual/multi-dataset/xtts_v2" },
+  david: { name: "david", label: "David (Male - Professional)", type: "coqui", model: "tts_models/multilingual/multi-dataset/xtts_v2" },
+  lisa: { name: "lisa", label: "Lisa (Female - Friendly)", type: "coqui", model: "tts_models/multilingual/multi-dataset/xtts_v2" },
+};
+
+// Tüm TTS sesleri birleştir
+const ALL_TTS_VOICES = {
+  ...GOOGLE_TTS_VOICES,
+  ...COQUI_TTS_VOICES,
+};
+
+// Coqui TTS fonksiyonu - xtts_v2 modeli ile
+async function generateCoquiTTS(text, voiceId, questionId, stepIndex) {
   try {
     const cleanText = cleanTextForTTS(text);
     if (!cleanText || cleanText.length < 3) {
-      console.log("Metin çok kısa, TTS atlanıyor:", cleanText);
+      console.log("Metin çok kısa, Coqui TTS atlanıyor:", cleanText);
+      return null;
+    }
+
+    const voice = COQUI_TTS_VOICES[voiceId];
+    if (!voice) {
+      console.error("Geçersiz Coqui TTS ses ID:", voiceId);
+      return null;
+    }
+
+    // Audio klasörü oluştur
+    const audioDir = path.join(__dirname, "public", "audio");
+    if (!fsSync.existsSync(audioDir)) {
+      fsSync.mkdirSync(audioDir, { recursive: true });
+    }
+
+    const fileName = `coqui_audio_${questionId}_step_${stepIndex}_${Date.now()}.wav`;
+    const outputPath = path.join(audioDir, fileName);
+
+    // Ses örneği dosyaları klasörü
+    const voiceSamplesDir = path.join(__dirname, "voice-samples");
+    const speakerWavPath = path.join(voiceSamplesDir, `${voiceId}.wav`);
+
+    // Python script ile Coqui TTS çalıştır
+    const pythonScript = `
+import sys
+import os
+
+try:
+    # PyTorch güvenlik ayarını devre dışı bırak (weights_only=False)
+    import torch
+
+    # torch.load'ı monkey patch ile değiştir
+    original_load = torch.load
+    def patched_load(*args, **kwargs):
+        kwargs['weights_only'] = False
+        return original_load(*args, **kwargs)
+    torch.load = patched_load
+
+    from TTS.api import TTS
+
+    # Model yükle
+    print("Model yükleniyor: ${voice.model}")
+    tts = TTS("${voice.model}")
+    print("Model başarıyla yüklendi")
+
+    # TTS oluştur
+    text = """${cleanText.replace(/"/g, '\\"')}"""
+    output_path = "${outputPath.replace(/\\/g, "/")}"
+
+    print("TTS oluşturuluyor...")
+
+    # Speaker wav dosyası varsa kullan (voice cloning)
+    speaker_wav = "${speakerWavPath.replace(/\\/g, "/")}"
+    if os.path.exists(speaker_wav):
+        print(f"Voice cloning ile TTS oluşturuluyor: {speaker_wav}")
+        tts.tts_to_file(text=text, speaker_wav=speaker_wav, language="en", file_path=output_path)
+    else:
+        print("Speaker wav dosyası bulunamadı, varsayılan model ile deneniyor...")
+        try:
+            # XTTS v2 modeli için speaker gerekli
+            tts.tts_to_file(text=text, language="en", file_path=output_path)
+        except ValueError as e:
+            if "speaker" in str(e):
+                print("Speaker gerekli, alternatif model kullanılıyor...")
+                # Alternatif model kullan
+                tts2 = TTS("tts_models/en/ljspeech/tacotron2-DDC")
+                tts2.tts_to_file(text=text, file_path=output_path)
+            else:
+                raise
+
+    print(f"TTS başarıyla oluşturuldu: {output_path}")
+    print("SUCCESS")
+
+except Exception as e:
+    import traceback
+    print(f"Hata: {e}")
+    print("Traceback:")
+    traceback.print_exc()
+    print("ERROR")
+`;
+
+    // Python script'i geçici dosyaya yaz
+    const scriptPath = path.join(__dirname, "temp_tts_script.py");
+    fsSync.writeFileSync(scriptPath, pythonScript);
+
+    return new Promise((resolve, reject) => {
+      console.log("Python script ile Coqui TTS çalıştırılıyor...");
+
+      // Python script'i çalıştır
+      const pythonProcess = spawn("python3.10", [scriptPath], {
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+
+      let stdout = "";
+      let stderr = "";
+
+      pythonProcess.stdout.on("data", (data) => {
+        stdout += data.toString();
+      });
+
+      pythonProcess.stderr.on("data", (data) => {
+        stderr += data.toString();
+      });
+
+      pythonProcess.on("close", (code) => {
+        // Geçici script dosyasını sil
+        try {
+          fsSync.unlinkSync(scriptPath);
+        } catch (e) {}
+
+        console.log("Python process tamamlandı, exit code:", code);
+        console.log("Stdout:", stdout);
+        console.log("Stderr:", stderr);
+
+        if (code === 0 && stdout.includes("SUCCESS") && fsSync.existsSync(outputPath)) {
+          console.log(`Coqui TTS başarıyla oluşturuldu: ${fileName}`);
+          resolve(`/audio/${fileName}`);
+        } else {
+          console.error("Coqui TTS hatası:");
+          console.error("Exit code:", code);
+          console.error("Stdout:", stdout);
+          console.error("Stderr:", stderr);
+          resolve(null);
+        }
+      });
+
+      pythonProcess.on("error", (error) => {
+        console.error("Python process hatası:", error);
+        try {
+          fsSync.unlinkSync(scriptPath);
+        } catch (e) {}
+        resolve(null);
+      });
+
+      // 60 saniye timeout
+      setTimeout(() => {
+        pythonProcess.kill();
+        console.error("Coqui TTS timeout");
+        try {
+          fsSync.unlinkSync(scriptPath);
+        } catch (e) {}
+        resolve(null);
+      }, 60000);
+    });
+  } catch (error) {
+    console.error("Coqui TTS oluşturma hatası:", error.message);
+    return null;
+  }
+}
+
+// Google Cloud TTS fonksiyonu (İngilizce, en iyi sesler)
+async function generateGoogleTTS(text, voiceId, questionId, stepIndex) {
+  try {
+    const cleanText = cleanTextForTTS(text);
+    if (!cleanText || cleanText.length < 3) {
+      console.log("Metin çok kısa, Google TTS atlanıyor:", cleanText);
       return null;
     }
 
     // Voice seçimi
     const voice = GOOGLE_TTS_VOICES[voiceId] || GOOGLE_TTS_VOICES["en-US-Chirp3-HD-Aoede"];
     const languageCode = voice.name.split("-").slice(0, 2).join("-");
-    // Gender belirleme (artık doğrudan voice.gender)
     let ssmlGender = voice.gender || "MALE";
 
     // Google Cloud TTS REST API endpoint
@@ -2255,10 +2448,10 @@ async function generateTTS(text, voiceId = "en-US-Neural2-J", questionId, stepIn
     if (!fsSync.existsSync(audioDir)) {
       fsSync.mkdirSync(audioDir, { recursive: true });
     }
-    const fileName = `audio_${questionId}_step_${stepIndex}_${Date.now()}.mp3`;
+    const fileName = `google_audio_${questionId}_step_${stepIndex}_${Date.now()}.mp3`;
     const filePath = path.join(audioDir, fileName);
     fsSync.writeFileSync(filePath, Buffer.from(audioContent, "base64"));
-    console.log(`TTS başarıyla oluşturuldu: ${fileName}`);
+    console.log(`Google TTS başarıyla oluşturuldu: ${fileName}`);
     return `/audio/${fileName}`;
   } catch (error) {
     console.error("Google TTS oluşturma hatası:", error.message);
@@ -2267,6 +2460,23 @@ async function generateTTS(text, voiceId = "en-US-Neural2-J", questionId, stepIn
       console.error("Data:", error.response.data);
     }
     return null;
+  }
+}
+
+// Birleşik TTS fonksiyonu - hem Google hem Coqui destekler
+async function generateTTS(text, voiceId = "en-US-Neural2-J", questionId, stepIndex) {
+  const voice = ALL_TTS_VOICES[voiceId];
+
+  if (!voice) {
+    console.error("Geçersiz ses ID:", voiceId);
+    return null;
+  }
+
+  // Ses tipine göre uygun TTS fonksiyonunu çağır
+  if (voice.type === "coqui") {
+    return await generateCoquiTTS(text, voiceId, questionId, stepIndex);
+  } else {
+    return await generateGoogleTTS(text, voiceId, questionId, stepIndex);
   }
 }
 
@@ -2315,3 +2525,70 @@ async function processStepsWithTTS(steps, questionId, voiceId, sendProgress) {
 }
 
 const GOOGLE_TTS_API_KEY = "AIzaSyBehe_uZ7eJPJcKk9cUaDCm6lT8UlbJwCw";
+
+// TTS ses listesi API endpoint'i
+app.get("/api/tts-voices", (req, res) => {
+  try {
+    // Sesleri kategorize et
+    const googleVoices = Object.entries(GOOGLE_TTS_VOICES).map(([id, voice]) => ({
+      id,
+      ...voice,
+      type: "google",
+      provider: "Google Cloud TTS",
+    }));
+
+    const coquiVoices = Object.entries(COQUI_TTS_VOICES).map(([id, voice]) => ({
+      id,
+      ...voice,
+      provider: "Coqui AI TTS",
+    }));
+
+    res.json({
+      success: true,
+      voices: {
+        google: googleVoices,
+        coqui: coquiVoices,
+        all: [...googleVoices, ...coquiVoices],
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+// Coqui TTS test endpoint'i
+app.post("/api/test-coqui-tts", async (req, res) => {
+  try {
+    const { text = "Hello, this is a test of Coqui TTS.", voiceId = "brian" } = req.body;
+
+    if (!text || text.trim().length < 3) {
+      return res.status(400).json({
+        success: false,
+        error: "Metin çok kısa",
+      });
+    }
+
+    const audioPath = await generateCoquiTTS(text, voiceId, "test", 0);
+
+    if (audioPath) {
+      res.json({
+        success: true,
+        audioPath: audioPath,
+        message: "Coqui TTS başarıyla çalıştı",
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: "Coqui TTS oluşturulamadı",
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
