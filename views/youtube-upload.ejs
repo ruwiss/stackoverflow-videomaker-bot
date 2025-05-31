@@ -235,7 +235,10 @@
                 <h6><strong>Açıklama:</strong></h6>
                 <p class="mb-3" id="descriptionPreview" style="max-height: 100px; overflow-y: auto"><%= videoData.description %></p>
 
-                <h6><strong>Etiketler:</strong></h6>
+                <h6>
+                  <strong>Etiketler:</strong>
+                  <button type="button" class="btn btn-sm btn-outline-secondary ms-2" onclick="copyTagsPreview()"><i class="fas fa-copy me-1"></i>Kopyala</button>
+                </h6>
                 <div id="tagsPreview">
                   <% videoData.keywords.forEach(keyword => { %>
                   <span class="tag-badge"><%= keyword %></span>
@@ -289,7 +292,10 @@
             </div>
 
             <div class="mb-4">
-              <label class="form-label"><i class="fas fa-tags me-2"></i>Etiketler (İsteğe Bağlı Düzenleme)</label>
+              <label class="form-label"
+                ><i class="fas fa-tags me-2"></i>Etiketler (İsteğe Bağlı Düzenleme)
+                <button type="button" class="btn btn-sm btn-outline-secondary ms-2" onclick="copyTagsEdit()"><i class="fas fa-copy me-1"></i>Kopyala</button>
+              </label>
               <div class="tag-input" id="tagInput">
                 <% videoData.keywords.forEach(keyword => { %>
                 <span class="tag-badge" data-tag="<%= keyword %>">
@@ -628,6 +634,74 @@
         const descriptionPreview = document.getElementById('descriptionPreview');
         const customDescription = document.getElementById('customDescription').value;
         descriptionPreview.textContent = customDescription || videoData.description;
+      }
+
+      function copyTagsPreview() {
+        const tagsPreview = document.getElementById('tagsPreview');
+        const tagBadges = tagsPreview.querySelectorAll('.tag-badge');
+
+        if (tagBadges.length === 0) {
+          alert("Henüz etiket bulunmuyor");
+          return;
+        }
+
+        const tags = Array.from(tagBadges).map(badge => badge.textContent.trim());
+        const tagsText = tags.join(", ");
+
+        navigator.clipboard.writeText(tagsText).then(() => {
+          // Başarı mesajı göster
+          const alertDiv = document.createElement('div');
+          alertDiv.className = 'alert alert-success alert-dismissible fade show mt-2';
+          alertDiv.innerHTML = `
+            <i class="fas fa-check me-2"></i>Etiketler kopyalandı: <strong>${tagsText}</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          `;
+          tagsPreview.appendChild(alertDiv);
+
+          // 3 saniye sonra otomatik kaldır
+          setTimeout(() => {
+            if (alertDiv.parentNode) {
+              alertDiv.remove();
+            }
+          }, 3000);
+        }).catch(err => {
+          console.error("Kopyalama hatası:", err);
+          alert("Kopyalama işlemi başarısız oldu");
+        });
+      }
+
+      function copyTagsEdit() {
+        const tagInput = document.getElementById('tagInput');
+        const tagBadges = tagInput.querySelectorAll('.tag-badge');
+
+        if (tagBadges.length === 0) {
+          alert("Henüz etiket bulunmuyor");
+          return;
+        }
+
+        const tags = Array.from(tagBadges).map(badge => badge.getAttribute('data-tag'));
+        const tagsText = tags.join(", ");
+
+        navigator.clipboard.writeText(tagsText).then(() => {
+          // Başarı mesajı göster
+          const alertDiv = document.createElement('div');
+          alertDiv.className = 'alert alert-success alert-dismissible fade show mt-2';
+          alertDiv.innerHTML = `
+            <i class="fas fa-check me-2"></i>Etiketler kopyalandı: <strong>${tagsText}</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          `;
+          tagInput.appendChild(alertDiv);
+
+          // 3 saniye sonra otomatik kaldır
+          setTimeout(() => {
+            if (alertDiv.parentNode) {
+              alertDiv.remove();
+            }
+          }, 3000);
+        }).catch(err => {
+          console.error("Kopyalama hatası:", err);
+          alert("Kopyalama işlemi başarısız oldu");
+        });
       }
     </script>
   </body>

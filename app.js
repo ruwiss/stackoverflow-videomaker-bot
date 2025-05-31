@@ -1498,6 +1498,9 @@ app.use("/musics", express.static(path.join(__dirname, "public", "musics")));
 // Thumbnail oluşturma fonksiyonu
 async function createThumbnail(title, category, questionId, variant = null) {
   try {
+    // HTML entity'leri decode et
+    const decodedTitle = decodeHtmlEntities(title);
+
     const width = 1280;
     const height = 720;
     const canvas = createCanvas(width, height);
@@ -1515,22 +1518,22 @@ async function createThumbnail(title, category, questionId, variant = null) {
     // Variant'a göre tasarım uygula
     switch (selectedVariant) {
       case "modern":
-        await createModernDesign(ctx, width, height, theme, title, category, colorPalette, layout, shapeVariant);
+        await createModernDesign(ctx, width, height, theme, decodedTitle, category, colorPalette, layout, shapeVariant);
         break;
       case "gradient":
-        await createGradientDesign(ctx, width, height, theme, title, category, colorPalette, layout, shapeVariant);
+        await createGradientDesign(ctx, width, height, theme, decodedTitle, category, colorPalette, layout, shapeVariant);
         break;
       case "minimal":
-        await createMinimalDesign(ctx, width, height, theme, title, category, colorPalette, layout, shapeVariant);
+        await createMinimalDesign(ctx, width, height, theme, decodedTitle, category, colorPalette, layout, shapeVariant);
         break;
       case "geometric":
-        await createGeometricDesign(ctx, width, height, theme, title, category, colorPalette, layout, shapeVariant);
+        await createGeometricDesign(ctx, width, height, theme, decodedTitle, category, colorPalette, layout, shapeVariant);
         break;
       case "neon":
-        await createNeonDesign(ctx, width, height, theme, title, category, colorPalette, layout, shapeVariant);
+        await createNeonDesign(ctx, width, height, theme, decodedTitle, category, colorPalette, layout, shapeVariant);
         break;
       default:
-        await createModernDesign(ctx, width, height, theme, title, category, colorPalette, layout, shapeVariant);
+        await createModernDesign(ctx, width, height, theme, decodedTitle, category, colorPalette, layout, shapeVariant);
     }
 
     // Icon ekle - Logo yükleme tamamen devre dışı bırakıldı (Canvas sorunları nedeniyle)

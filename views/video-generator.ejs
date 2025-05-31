@@ -288,7 +288,10 @@
 
                     <!-- Tags Section -->
                     <div class="mb-4">
-                      <label class="form-label">Tags</label>
+                      <label class="form-label"
+                        >Tags
+                        <button type="button" class="btn btn-sm btn-outline-secondary ms-2" id="copyTagsBtn" onclick="copyTags()" style="display: none"><i class="fas fa-copy me-1"></i>Kopyala</button>
+                      </label>
                       <div id="keywords" class="youtube-field"></div>
                       <div class="form-text">Tags can be useful for finding your content</div>
                     </div>
@@ -573,6 +576,9 @@
                 const keywordsDiv = document.getElementById("keywords");
                 keywordsDiv.innerHTML = result.data.keywords.map((keyword) => `<span class="tag-badge text-white">${keyword}</span>`).join("");
 
+                // Kopyala butonunu göster
+                document.getElementById("copyTagsBtn").style.display = "inline-block";
+
                 // Thumbnail göster
                 if (result.data.thumbnail) {
                   document.getElementById("thumbnailPlaceholder").style.display = "none";
@@ -722,6 +728,15 @@
         const title = `<%= question.title.replace(/"/g, '\\"') %>`;
         const category = "<%= question.category %>";
 
+        // HTML entity'leri decode et
+        function decodeHtmlEntities(text) {
+          const textArea = document.createElement("textarea");
+          textArea.innerHTML = text;
+          return textArea.value;
+        }
+
+        const decodedTitle = decodeHtmlEntities(title);
+
         // Butonu deaktif et ve loading göster
         const btn = this;
         const originalHtml = btn.innerHTML;
@@ -736,7 +751,7 @@
             },
             body: JSON.stringify({
               questionId: questionId,
-              title: title,
+              title: decodedTitle,
               category: category,
             }),
           });
@@ -1182,6 +1197,41 @@
             wordElement.className = "word unread"; // Henüz okunmayan kelimeler
           }
         });
+      }
+
+      // Tags kopyalama fonksiyonu
+      function copyTags() {
+        const keywordsDiv = document.getElementById("keywords");
+        const tagBadges = keywordsDiv.querySelectorAll(".tag-badge");
+
+        if (tagBadges.length === 0) {
+          alert("Henüz etiket oluşturulmadı");
+          return;
+        }
+
+        const tags = Array.from(tagBadges).map((badge) => badge.textContent.trim());
+        const tagsText = tags.join(", ");
+
+        navigator.clipboard
+          .writeText(tagsText)
+          .then(() => {
+            // Başarı mesajı
+            const btn = document.getElementById("copyTagsBtn");
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-check me-1"></i>Kopyalandı!';
+            btn.classList.remove("btn-outline-secondary");
+            btn.classList.add("btn-success");
+
+            setTimeout(() => {
+              btn.innerHTML = originalText;
+              btn.classList.remove("btn-success");
+              btn.classList.add("btn-outline-secondary");
+            }, 2000);
+          })
+          .catch((err) => {
+            console.error("Kopyalama hatası:", err);
+            alert("Kopyalama işlemi başarısız oldu");
+          });
       }
     </script>
   </body>
