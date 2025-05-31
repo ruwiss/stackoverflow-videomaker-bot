@@ -187,6 +187,17 @@
               <h6><i class="fas fa-cog me-2"></i>Video Ayarları</h6>
 
               <div class="mb-3">
+                <label class="form-label">Tema:</label>
+                <div class="d-flex gap-2">
+                  <button class="btn btn-outline-light btn-sm flex-grow-1" id="currentThemeBtn"><i class="fas fa-palette me-2"></i><span id="currentThemeName">Mor Galaksi</span></button>
+                  <button class="btn btn-outline-warning btn-sm" id="randomThemeBtn" title="Rastgele Tema">
+                    <i class="fas fa-random"></i>
+                  </button>
+                </div>
+                <small class="text-light">Videoda kullanılacak renk teması</small>
+              </div>
+
+              <div class="mb-3">
                 <label class="form-label">FPS:</label>
                 <select class="form-select" id="fpsSelect">
                   <option value="24">24 FPS (Sinema)</option>
@@ -246,6 +257,204 @@
       let backgroundMusic = null;
       let backgroundMusicGain = null;
 
+      // Tema sistemi
+      let currentTheme = 0;
+      const videoThemes = [
+        {
+          name: 'Mor Galaksi',
+          background: ['#0F0F23', '#1e1e3f', '#2d1b69'],
+          primary: '#7C3AED',
+          secondary: '#A855F7',
+          accent: '#C084FC',
+          particle: 'rgba(124, 58, 237, 0.1)',
+          glow: '#7C3AED',
+          textShadow: 'rgba(124, 58, 237, 0.5)'
+        },
+        {
+          name: 'Gece Mavisi',
+          background: ['#0B1426', '#1E3A8A', '#1E40AF'],
+          primary: '#3B82F6',
+          secondary: '#60A5FA',
+          accent: '#93C5FD',
+          particle: 'rgba(59, 130, 246, 0.1)',
+          glow: '#3B82F6',
+          textShadow: 'rgba(59, 130, 246, 0.5)'
+        },
+        {
+          name: 'Karanlık Yeşil',
+          background: ['#0F1419', '#064E3B', '#065F46'],
+          primary: '#10B981',
+          secondary: '#34D399',
+          accent: '#6EE7B7',
+          particle: 'rgba(16, 185, 129, 0.1)',
+          glow: '#10B981',
+          textShadow: 'rgba(16, 185, 129, 0.5)'
+        },
+        {
+          name: 'Turuncu Alev',
+          background: ['#1C1917', '#7C2D12', '#9A3412'],
+          primary: '#F97316',
+          secondary: '#FB923C',
+          accent: '#FDBA74',
+          particle: 'rgba(249, 115, 22, 0.1)',
+          glow: '#F97316',
+          textShadow: 'rgba(249, 115, 22, 0.5)'
+        },
+        {
+          name: 'Pembe Neon',
+          background: ['#18181B', '#7C2D92', '#A21CAF'],
+          primary: '#E11D48',
+          secondary: '#F43F5E',
+          accent: '#FB7185',
+          particle: 'rgba(225, 29, 72, 0.1)',
+          glow: '#E11D48',
+          textShadow: 'rgba(225, 29, 72, 0.5)'
+        },
+        {
+          name: 'Sarı Elektrik',
+          background: ['#1C1917', '#92400E', '#B45309'],
+          primary: '#F59E0B',
+          secondary: '#FBBF24',
+          accent: '#FCD34D',
+          particle: 'rgba(245, 158, 11, 0.1)',
+          glow: '#F59E0B',
+          textShadow: 'rgba(245, 158, 11, 0.5)'
+        },
+        {
+          name: 'Kırmızı Matrix',
+          background: ['#0F0F0F', '#7F1D1D', '#991B1B'],
+          primary: '#DC2626',
+          secondary: '#EF4444',
+          accent: '#F87171',
+          particle: 'rgba(220, 38, 38, 0.1)',
+          glow: '#DC2626',
+          textShadow: 'rgba(220, 38, 38, 0.5)'
+        },
+        {
+          name: 'Turkuaz Okyanus',
+          background: ['#0F1419', '#155E75', '#0E7490'],
+          primary: '#0891B2',
+          secondary: '#22D3EE',
+          accent: '#67E8F9',
+          particle: 'rgba(8, 145, 178, 0.1)',
+          glow: '#0891B2',
+          textShadow: 'rgba(8, 145, 178, 0.5)'
+        },
+        {
+          name: 'Soft Lavanta',
+          background: ['#1A1A2E', '#2D2D4A', '#3E3E66'],
+          primary: '#8B7CF6',
+          secondary: '#A78BFA',
+          accent: '#C4B5FD',
+          particle: 'rgba(139, 124, 246, 0.1)',
+          glow: '#8B7CF6',
+          textShadow: 'rgba(139, 124, 246, 0.5)'
+        },
+        {
+          name: 'Yumuşak Mavi',
+          background: ['#1E2A3A', '#2C4663', '#3A5A7C'],
+          primary: '#60A5FA',
+          secondary: '#93C5FD',
+          accent: '#BFDBFE',
+          particle: 'rgba(96, 165, 250, 0.1)',
+          glow: '#60A5FA',
+          textShadow: 'rgba(96, 165, 250, 0.5)'
+        },
+        {
+          name: 'Pastel Yeşil',
+          background: ['#1A2E2A', '#2D4B3F', '#406854'],
+          primary: '#4ADE80',
+          secondary: '#86EFAC',
+          accent: '#BBF7D0',
+          particle: 'rgba(74, 222, 128, 0.1)',
+          glow: '#4ADE80',
+          textShadow: 'rgba(74, 222, 128, 0.5)'
+        },
+        {
+          name: 'Soft Coral',
+          background: ['#2A1E1E', '#4B3535', '#6B4C4C'],
+          primary: '#FB7185',
+          secondary: '#FDA4AF',
+          accent: '#FECACA',
+          particle: 'rgba(251, 113, 133, 0.1)',
+          glow: '#FB7185',
+          textShadow: 'rgba(251, 113, 133, 0.5)'
+        },
+        {
+          name: 'Warm Amber',
+          background: ['#2A2416', '#4B4020', '#6B5B2A'],
+          primary: '#FBBF24',
+          secondary: '#FCD34D',
+          accent: '#FEF3C7',
+          particle: 'rgba(251, 191, 36, 0.1)',
+          glow: '#FBBF24',
+          textShadow: 'rgba(251, 191, 36, 0.5)'
+        },
+        {
+          name: 'Soft Cyan',
+          background: ['#1A2A2E', '#2D4B54', '#40686B'],
+          primary: '#22D3EE',
+          secondary: '#67E8F9',
+          accent: '#A5F3FC',
+          particle: 'rgba(34, 211, 238, 0.1)',
+          glow: '#22D3EE',
+          textShadow: 'rgba(34, 211, 238, 0.5)'
+        },
+        {
+          name: 'Gentle Rose',
+          background: ['#2E1A2A', '#4B2D42', '#68405A'],
+          primary: '#F472B6',
+          secondary: '#F9A8D4',
+          accent: '#FBCFE8',
+          particle: 'rgba(244, 114, 182, 0.1)',
+          glow: '#F472B6',
+          textShadow: 'rgba(244, 114, 182, 0.5)'
+        },
+        {
+          name: 'Mist Gray',
+          background: ['#1F1F23', '#3A3A42', '#555561'],
+          primary: '#9CA3AF',
+          secondary: '#D1D5DB',
+          accent: '#E5E7EB',
+          particle: 'rgba(156, 163, 175, 0.1)',
+          glow: '#9CA3AF',
+          textShadow: 'rgba(156, 163, 175, 0.5)'
+        },
+        {
+          name: 'Soft Indigo',
+          background: ['#1E1E2E', '#323244', '#46465A'],
+          primary: '#818CF8',
+          secondary: '#A5B4FC',
+          accent: '#C7D2FE',
+          particle: 'rgba(129, 140, 248, 0.1)',
+          glow: '#818CF8',
+          textShadow: 'rgba(129, 140, 248, 0.5)'
+        }
+      ];
+
+      function getCurrentTheme() {
+        return videoThemes[currentTheme];
+      }
+
+      function changeTheme(themeIndex = null) {
+        if (themeIndex !== null) {
+          currentTheme = themeIndex;
+        } else {
+          // Random tema seç
+          currentTheme = Math.floor(Math.random() * videoThemes.length);
+        }
+
+        const theme = getCurrentTheme();
+        document.getElementById('currentThemeName').textContent = theme.name;
+
+        // Eğer welcome screen gösteriliyorsa yeniden çiz
+        if (!isRecording && !previewMode) {
+          drawWelcomeScreen();
+        }
+
+        console.log('Tema değiştirildi:', theme.name);
+      }
+
       // Video state
       let isRecording = false;
       let mediaRecorder = null;
@@ -300,24 +509,26 @@
       }
 
       function drawWelcomeScreen() {
+        const theme = getCurrentTheme();
+
         // Clear canvas
-        ctx.fillStyle = '#0F0F23';
+        ctx.fillStyle = theme.background[0];
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Modern gradient background - safe values
+        // Modern gradient background - tema renklerini kullan
         const gradient = ctx.createRadialGradient(
           canvas.width/2, canvas.height/2, 0,
           canvas.width/2, canvas.height/2, Math.max(canvas.width, canvas.height)/2
         );
-        gradient.addColorStop(0, '#1e1e3f');
-        gradient.addColorStop(0.5, '#2d1b69');
-        gradient.addColorStop(1, '#0F0F23');
+        gradient.addColorStop(0, theme.background[1]);
+        gradient.addColorStop(0.5, theme.background[2]);
+        gradient.addColorStop(1, theme.background[0]);
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Add animated particles
+        // Add animated particles - tema renginde
         const time = Date.now() * 0.001;
-        ctx.fillStyle = 'rgba(124, 58, 237, 0.1)';
+        ctx.fillStyle = theme.particle;
         for (let i = 0; i < 20; i++) {
           const x = (Math.sin(time + i) * 200) + canvas.width / 2;
           const y = (Math.cos(time + i * 0.5) * 100) + canvas.height / 2;
@@ -339,8 +550,8 @@
         ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
         ctx.fillRect(titleContainer.x, titleContainer.y, titleContainer.width, titleContainer.height);
 
-        // Border glow
-        ctx.strokeStyle = 'rgba(124, 58, 237, 0.3)';
+        // Border glow - tema renginde
+        ctx.strokeStyle = theme.primary + '80'; // 50% opacity
         ctx.lineWidth = 2;
         ctx.strokeRect(titleContainer.x, titleContainer.y, titleContainer.width, titleContainer.height);
 
@@ -369,15 +580,15 @@
         }
         if (currentLine) lines.push(currentLine);
 
-        // Draw title with glow effect
+        // Draw title with glow effect - tema renginde
         const lineHeight = 90;
         const titleY = titleContainer.y + titleContainer.height/2 - ((lines.length - 1) * lineHeight / 2);
 
         lines.forEach((line, index) => {
           const y = titleY + index * lineHeight;
 
-          // Glow effect
-          ctx.shadowColor = '#7C3AED';
+          // Glow effect - tema renginde
+          ctx.shadowColor = theme.glow;
           ctx.shadowBlur = 20;
           ctx.fillStyle = '#FFFFFF';
           ctx.fillText(line, canvas.width / 2, y);
@@ -391,11 +602,11 @@
         ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
         ctx.fillText('Hazır. Video oluşturmaya başlamak için butona tıklayın.', canvas.width / 2, canvas.height - 150);
 
-        // Animated play button indicator
+        // Animated play button indicator - tema renginde
         const buttonY = canvas.height - 100;
         const pulseScale = 1 + Math.sin(time * 3) * 0.1;
 
-        ctx.fillStyle = 'rgba(124, 58, 237, 0.3)';
+        ctx.fillStyle = theme.primary + '80'; // 50% opacity
         ctx.beginPath();
         ctx.arc(canvas.width / 2, buttonY, 30 * pulseScale, 0, Math.PI * 2);
         ctx.fill();
@@ -442,6 +653,16 @@
         startBtn.addEventListener('click', startVideoCreation);
         downloadBtn.addEventListener('click', downloadVideo);
 
+        // Tema butonları
+        document.getElementById('randomThemeBtn').addEventListener('click', () => {
+          changeTheme(); // Random tema
+        });
+
+        document.getElementById('currentThemeBtn').addEventListener('click', () => {
+          // Tema listesi göster (dropdown-like behavior)
+          showThemeSelector();
+        });
+
         document.getElementById('fpsSelect').addEventListener('change', (e) => {
           fps = parseInt(e.target.value);
         });
@@ -473,6 +694,21 @@
 
           console.log('Müzik ses seviyesi güncellendi:', musicVolume);
         });
+      }
+
+      function showThemeSelector() {
+        // Basit bir alert ile tema seçimi (gelişmiş modal yerine)
+        const themeNames = videoThemes.map((theme, index) => `${index + 1}. ${theme.name}`).join('\n');
+        const selection = prompt(`Tema seçin (1-${videoThemes.length}):\n\n${themeNames}`);
+
+        if (selection) {
+          const themeIndex = parseInt(selection) - 1;
+          if (themeIndex >= 0 && themeIndex < videoThemes.length) {
+            changeTheme(themeIndex);
+          } else {
+            alert('Geçersiz tema numarası!');
+          }
+        }
       }
 
       async function startVideoCreation() {
@@ -604,10 +840,11 @@
             }
           };
 
-          mediaRecorder.onstop = () => {
+          mediaRecorder.onstop = async () => {
             const blob = new Blob(recordedChunks, { type: 'video/webm' });
             const url = URL.createObjectURL(blob);
 
+            // Download butonu
             downloadBtn.style.display = 'block';
             downloadBtn.onclick = () => {
               const a = document.createElement('a');
@@ -615,6 +852,55 @@
               a.download = `video_${questionId}_${Date.now()}.webm`;
               a.click();
             };
+
+            // YouTube yükleme butonu oluştur
+            const youtubeUploadBtn = document.createElement('button');
+            youtubeUploadBtn.className = 'btn btn-danger btn-lg w-100 mt-3';
+            youtubeUploadBtn.innerHTML = '<i class="fab fa-youtube me-2"></i>YouTube\'a Yükle';
+            youtubeUploadBtn.onclick = async function() {
+              this.disabled = true;
+              this.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Yönlendiriliyor...';
+
+              try {
+                // Video verilerini sunucuya kaydet
+                await fetch('/api/save-video-data', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({
+                    questionId: questionId,
+                    videoData: videoData
+                  })
+                });
+
+                // Video dosyasını sunucuya kaydet
+                const formData = new FormData();
+                formData.append('video', blob, `video_${questionId}_${Date.now()}.webm`);
+                formData.append('questionId', questionId);
+
+                const uploadResponse = await fetch('/api/save-video-for-youtube', {
+                  method: 'POST',
+                  body: formData
+                });
+
+                const uploadResult = await uploadResponse.json();
+
+                if (uploadResult.success) {
+                  // YouTube yükleme sayfasına yönlendir
+                  window.location.href = `/youtube-upload/${questionId}?videoFile=${uploadResult.videoFile}`;
+                } else {
+                  throw new Error(uploadResult.error || 'Video kaydedilemedi');
+                }
+              } catch (error) {
+                alert('YouTube yükleme hazırlığında hata: ' + error.message);
+                this.disabled = false;
+                this.innerHTML = '<i class="fab fa-youtube me-2"></i>YouTube\'a Yükle';
+              }
+            };
+
+            // YouTube butonunu download butonundan sonra ekle
+            downloadBtn.parentNode.insertBefore(youtubeUploadBtn, downloadBtn.nextSibling);
 
             startBtn.disabled = false;
             startBtn.innerHTML = '<i class="fas fa-play me-2"></i>Yeni Video Oluştur';
@@ -820,18 +1106,20 @@
       let imageCache = {};
 
       function drawVideoFrame(step, stepTime) {
-        // Clear canvas
-        ctx.fillStyle = '#0F0F23';
+        const theme = getCurrentTheme();
+
+        // Clear canvas - tema renginde
+        ctx.fillStyle = theme.background[0];
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Modern gradient background - safe values
+        // Modern gradient background - tema renklerini kullan
         const gradient = ctx.createRadialGradient(
           canvas.width/2, canvas.height/2, 0,
           canvas.width/2, canvas.height/2, Math.max(canvas.width, canvas.height)/2
         );
-        gradient.addColorStop(0, '#1e1e3f');
-        gradient.addColorStop(0.5, '#2d1b69');
-        gradient.addColorStop(1, '#0F0F23');
+        gradient.addColorStop(0, theme.background[1]);
+        gradient.addColorStop(0.5, theme.background[2]);
+        gradient.addColorStop(1, theme.background[0]);
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -844,15 +1132,15 @@
         }
 
         // Modern text container with glassmorphism effect
-        const textAreaHeight = 250;
-        const margin = 60;
+        const textAreaHeight = 300;
+        const margin = 40;
 
         // Glass background
         ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
         ctx.fillRect(margin, margin, canvas.width - margin*2, textAreaHeight);
 
-        // Border glow
-        ctx.strokeStyle = 'rgba(124, 58, 237, 0.3)';
+        // Border glow - tema renginde
+        ctx.strokeStyle = theme.primary + '80'; // 50% opacity
         ctx.lineWidth = 2;
         ctx.strokeRect(margin, margin, canvas.width - margin*2, textAreaHeight);
 
@@ -938,15 +1226,15 @@
 
         // Only process if we have visible text
         if (finalText.length > 0) {
-          // Modern typography
-          ctx.font = 'bold 52px system-ui, -apple-system, sans-serif';
+          // Modern typography - daha küçük font
+          ctx.font = 'bold 42px system-ui, -apple-system, sans-serif';
           ctx.textAlign = 'left';
           ctx.textBaseline = 'top';
 
           const displayWords = finalText.split(' ');
 
-          // Text wrapping with opacity support
-          const maxWidth = canvas.width - (margin + 40)*2;
+          // Text wrapping with opacity support - daha geniş alan
+          const maxWidth = canvas.width - (margin + 30)*2;
           let lines = [];
           let currentLine = '';
           let currentLineWords = [];
@@ -983,14 +1271,14 @@
             });
           }
 
-          // Draw text with enhanced spacing and opacity
-          const lineHeight = 65;
-          const textStartY = margin + 40;
+          // Draw text with enhanced spacing and opacity - daha fazla satır
+          const lineHeight = 55;
+          const textStartY = margin + 30;
 
           lines.forEach((lineData, lineIndex) => {
-            if (lineIndex < 3) { // Max 3 lines
+            if (lineIndex < 5) {
               const y = textStartY + lineIndex * lineHeight;
-              let currentX = margin + 40;
+              let currentX = margin + 30;
 
               // Draw each word with its own opacity
               lineData.words.forEach((word, wordIdx) => {
@@ -1016,10 +1304,10 @@
           const totalWords = words.length;
 
           if (totalWordsShown < totalWords && finalText.length > 0) {
-            const lastLineIndex = Math.min(lines.length - 1, 2);
+            const lastLineIndex = Math.min(lines.length - 1, 4);
             const lastLine = lines[lastLineIndex];
             if (lastLine) {
-              const cursorX = margin + 40 + ctx.measureText(lastLine.text).width + 10;
+              const cursorX = margin + 30 + ctx.measureText(lastLine.text).width + 10;
               const cursorY = textStartY + lastLineIndex * lineHeight;
 
               // Blinking cursor
@@ -1028,7 +1316,7 @@
 
               if (shouldShowCursor) {
                 ctx.fillStyle = '#7C3AED';
-                ctx.fillRect(cursorX, cursorY + 10, 4, 40);
+                ctx.fillRect(cursorX, cursorY + 8, 3, 35);
               }
             }
           }
@@ -1054,13 +1342,12 @@
         if (!img || !img.width || !img.height) return;
 
         const maxWidth = canvas.width - 120;
-        const maxHeight = canvas.height - 480;
-        const margin = 60;
+        const maxHeight = canvas.height - 420; // 480'den 420'ye (metin alanı büyüdü)
 
         let drawWidth = img.width;
         let drawHeight = img.height;
 
-        // Scale to fit with padding
+        // Scale to fit without padding
         if (drawWidth > maxWidth) {
           drawHeight = (drawHeight * maxWidth) / drawWidth;
           drawWidth = maxWidth;
@@ -1073,25 +1360,13 @@
 
         // Center the image
         const x = (canvas.width - drawWidth) / 2;
-        const y = 380;
+        const y = 370; // Metin alanı büyüdüğü için pozisyonu güncelledim
 
-        // Modern container with shadow
-        const padding = 20;
+        // Sadece hafif gölge (opsiyonel)
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+        ctx.fillRect(x + 3, y + 3, drawWidth, drawHeight);
 
-        // Shadow
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-        ctx.fillRect(x - padding + 5, y - padding + 5, drawWidth + padding*2, drawHeight + padding*2);
-
-        // Background
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-        ctx.fillRect(x - padding, y - padding, drawWidth + padding*2, drawHeight + padding*2);
-
-        // Border
-        ctx.strokeStyle = 'rgba(124, 58, 237, 0.2)';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(x - padding, y - padding, drawWidth + padding*2, drawHeight + padding*2);
-
-        // Image
+        // Resmi doğrudan çiz (padding yok)
         try {
           ctx.drawImage(img, x, y, drawWidth, drawHeight);
         } catch (error) {
@@ -1103,13 +1378,14 @@
           ctx.fillText('Resim yükleniyor...', canvas.width / 2, y + drawHeight / 2);
         }
 
-        // Subtle inner glow
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+        // İnce border (opsiyonel)
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
         ctx.lineWidth = 1;
-        ctx.strokeRect(x - padding + 1, y - padding + 1, drawWidth + padding*2 - 2, drawHeight + padding*2 - 2);
+        ctx.strokeRect(x, y, drawWidth, drawHeight);
       }
 
       function drawStepIndicator(step, stepTime, actualDuration) {
+        const theme = getCurrentTheme();
         const indicatorWidth = 400;
         const indicatorHeight = 8;
         const x = (canvas.width - indicatorWidth) / 2;
@@ -1125,12 +1401,12 @@
         const progress = Math.min(1, Math.max(0, safeStepTime / safeDuration));
         const progressWidth = indicatorWidth * progress;
 
-        // Gradient progress bar - safe values
+        // Gradient progress bar - tema renklerini kullan
         if (progressWidth > 0) {
           const progressGradient = ctx.createLinearGradient(x, y, x + progressWidth, y);
-          progressGradient.addColorStop(0, '#7C3AED');
-          progressGradient.addColorStop(0.5, '#A855F7');
-          progressGradient.addColorStop(1, '#C084FC');
+          progressGradient.addColorStop(0, theme.primary);
+          progressGradient.addColorStop(0.5, theme.secondary);
+          progressGradient.addColorStop(1, theme.accent);
 
           ctx.fillStyle = progressGradient;
           ctx.fillRect(x, y, progressWidth, indicatorHeight);

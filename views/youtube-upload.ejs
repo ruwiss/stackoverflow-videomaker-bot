@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>YouTube'a Video Yükle - <%= videoData.title %></title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+    <style>
+      body {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      }
+
+      .upload-container {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+      }
+
+      .youtube-header {
+        background: linear-gradient(135deg, #ff0000 0%, #cc0000 100%);
+        color: white;
+        padding: 30px;
+        text-align: center;
+      }
+
+      .youtube-header h1 {
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin: 0;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+      }
+
+      .video-info {
+        background: #f8f9fa;
+        border-radius: 15px;
+        padding: 25px;
+        margin-bottom: 25px;
+        border: 1px solid #e9ecef;
+      }
+
+      .upload-status {
+        background: #fff3cd;
+        border: 1px solid #ffeaa7;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 25px;
+        display: none;
+      }
+
+      .upload-status.success {
+        background: #d1edff;
+        border-color: #bee5eb;
+      }
+
+      .upload-status.error {
+        background: #f8d7da;
+        border-color: #f5c6cb;
+      }
+
+      .schedule-section {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 25px;
+        margin-bottom: 25px;
+      }
+
+      .form-control,
+      .form-select {
+        border-radius: 10px;
+        border: 2px solid #e9ecef;
+        padding: 12px 16px;
+        transition: all 0.3s ease;
+      }
+
+      .form-control:focus,
+      .form-select:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+      }
+
+      .btn-upload {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        border: none;
+        border-radius: 25px;
+        padding: 15px 40px;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        transition: all 0.3s ease;
+        color: white;
+      }
+
+      .btn-upload:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(40, 167, 69, 0.4);
+        color: white;
+      }
+
+      .btn-auth {
+        background: linear-gradient(135deg, #ff0000 0%, #cc0000 100%);
+        border: none;
+        border-radius: 25px;
+        padding: 15px 40px;
+        font-weight: bold;
+        color: white;
+        transition: all 0.3s ease;
+      }
+
+      .btn-auth:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(255, 0, 0, 0.4);
+        color: white;
+      }
+
+      .thumbnail-preview {
+        max-width: 100%;
+        border-radius: 10px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      }
+
+      .progress-container {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        margin-top: 20px;
+        display: none;
+      }
+
+      .upload-progress {
+        height: 20px;
+        border-radius: 10px;
+        background: #e9ecef;
+        overflow: hidden;
+      }
+
+      .upload-progress-bar {
+        background: linear-gradient(90deg, #28a745, #20c997);
+        height: 100%;
+        transition: width 0.3s ease;
+        border-radius: 10px;
+      }
+
+      .auth-status {
+        background: #e7f3ff;
+        border: 1px solid #b3d9ff;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 20px;
+      }
+
+      .video-preview-section {
+        background: #f8f9fa;
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 25px;
+      }
+
+      .tag-input {
+        background: #fff;
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        padding: 10px;
+        min-height: 100px;
+      }
+
+      .tag-badge {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 5px 12px;
+        border-radius: 15px;
+        margin: 3px;
+        display: inline-block;
+        font-size: 0.9rem;
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="navbar navbar-expand-lg navbar-dark" style="background: rgba(0, 0, 0, 0.1)">
+      <div class="container">
+        <a class="navbar-brand" href="/"> <i class="fab fa-youtube me-2"></i>YouTube Yükleme </a>
+        <div class="navbar-nav ms-auto">
+          <a class="nav-link" href="/">Ana Sayfa</a>
+        </div>
+      </div>
+    </nav>
+
+    <div class="container py-5">
+      <div class="upload-container">
+        <!-- YouTube Header -->
+        <div class="youtube-header">
+          <h1><i class="fab fa-youtube me-3"></i>YouTube'a Yükle</h1>
+          <p class="mb-0 fs-5">Videonuzu YouTube kanalınıza otomatik olarak yükleyin</p>
+        </div>
+
+        <div class="p-4">
+          <!-- Auth Status -->
+          <div class="auth-status" id="authStatus">
+            <div class="d-flex align-items-center">
+              <i class="fas fa-info-circle text-primary me-2"></i>
+              <span id="authMessage">YouTube hesabınıza bağlanmak için yetkilendirme gerekli</span>
+            </div>
+          </div>
+
+          <!-- Video Info -->
+          <div class="video-info">
+            <h4 class="mb-3"><i class="fas fa-video me-2"></i>Video Bilgileri</h4>
+            <div class="row">
+              <div class="col-md-4">
+                <div class="mb-3">
+                  <label class="form-label"><i class="fas fa-image me-2"></i>Thumbnail Seç (İsteğe Bağlı)</label>
+                  <input type="file" class="form-control" id="thumbnailFile" name="thumbnailFile" accept="image/*" />
+                  <div class="form-text">Özel thumbnail yüklemek için resim seçin</div>
+                </div>
+
+                <div id="thumbnailPreview">
+                  <% if (videoData.thumbnail) { %>
+                  <img src="<%= videoData.thumbnail %>" alt="Thumbnail" class="thumbnail-preview" id="thumbnailImage" />
+                  <% } else { %>
+                  <div class="bg-light p-4 text-center rounded" id="thumbnailPlaceholder">
+                    <i class="fas fa-image fa-3x text-muted mb-2"></i>
+                    <p class="text-muted">Thumbnail yok</p>
+                  </div>
+                  <% } %>
+                </div>
+              </div>
+              <div class="col-md-8">
+                <h5><strong>Başlık:</strong></h5>
+                <p class="mb-3" id="titlePreview"><%= videoData.title %></p>
+
+                <h6><strong>Açıklama:</strong></h6>
+                <p class="mb-3" id="descriptionPreview" style="max-height: 100px; overflow-y: auto"><%= videoData.description %></p>
+
+                <h6><strong>Etiketler:</strong></h6>
+                <div id="tagsPreview">
+                  <% videoData.keywords.forEach(keyword => { %>
+                  <span class="tag-badge"><%= keyword %></span>
+                  <% }); %>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Upload Form -->
+          <form id="uploadForm" enctype="multipart/form-data">
+            <div class="mb-4">
+              <label class="form-label"><i class="fas fa-file-video me-2"></i>Video Dosyası Seç</label>
+              <input type="file" class="form-control" id="videoFile" name="videoFile" accept="video/*" required />
+              <div class="form-text">Yüklenecek video dosyasını seçin</div>
+            </div>
+
+            <!-- Video Settings -->
+            <div class="row mb-4">
+              <div class="col-md-6">
+                <label class="form-label"><i class="fas fa-eye me-2"></i>Görünürlük</label>
+                <select class="form-select" id="privacy" name="privacy" required>
+                  <option value="private">Özel (Private)</option>
+                  <option value="unlisted">Listelenmemiş (Unlisted)</option>
+                  <option value="public">Herkese Açık (Public)</option>
+                </select>
+                <div class="form-text">Video görünürlük ayarını seçin</div>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label"><i class="fas fa-list me-2"></i>Kategori</label>
+                <select class="form-select" id="category" name="category" required>
+                  <option value="27">Eğitim</option>
+                  <option value="28">Bilim & Teknoloji</option>
+                  <option value="22">Kişisel Blog</option>
+                  <option value="26">Nasıl Yapılır</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Custom Title/Description -->
+            <div class="mb-4">
+              <label class="form-label"><i class="fas fa-edit me-2"></i>Başlık (İsteğe Bağlı Düzenleme)</label>
+              <input type="text" class="form-control" id="customTitle" name="customTitle" value="<%= videoData.title %>" maxlength="100" />
+              <div class="form-text">YouTube başlık limiti: 100 karakter</div>
+            </div>
+
+            <div class="mb-4">
+              <label class="form-label"><i class="fas fa-align-left me-2"></i>Açıklama (İsteğe Bağlı Düzenleme)</label>
+              <textarea class="form-control" id="customDescription" name="customDescription" rows="6" maxlength="5000"><%= videoData.description %></textarea>
+              <div class="form-text">YouTube açıklama limiti: 5000 karakter</div>
+            </div>
+
+            <div class="mb-4">
+              <label class="form-label"><i class="fas fa-tags me-2"></i>Etiketler (İsteğe Bağlı Düzenleme)</label>
+              <div class="tag-input" id="tagInput">
+                <% videoData.keywords.forEach(keyword => { %>
+                <span class="tag-badge" data-tag="<%= keyword %>">
+                  <%= keyword %>
+                  <i class="fas fa-times ms-1" onclick="removeTag(this)"></i>
+                </span>
+                <% }); %>
+              </div>
+              <input type="text" class="form-control mt-2" id="newTag" placeholder="Yeni etiket eklemek için yazın ve Enter'a basın..." />
+              <div class="form-text">Her etiket 500 karakterden az olmalı</div>
+            </div>
+
+            <!-- Schedule Section -->
+            <div class="schedule-section">
+              <h5 class="mb-3"><i class="fas fa-calendar me-2"></i>Yayınlama Zamanlaması</h5>
+              <div class="row">
+                <div class="col-md-6">
+                  <div class="form-check mb-3">
+                    <input class="form-check-input" type="radio" name="uploadType" id="uploadNow" value="now" checked />
+                    <label class="form-check-label" for="uploadNow"> <i class="fas fa-play me-2"></i>Hemen Yükle </label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="uploadType" id="uploadScheduled" value="scheduled" />
+                    <label class="form-check-label" for="uploadScheduled"> <i class="fas fa-clock me-2"></i>Zamanla </label>
+                  </div>
+                </div>
+                <div class="col-md-6" id="scheduleInputs" style="display: none">
+                  <label class="form-label">Yayınlama Tarihi ve Saati</label>
+                  <input type="datetime-local" class="form-control" id="scheduledTime" name="scheduledTime" />
+                  <div class="form-text">Gelecekteki bir tarih ve saat seçin</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Upload Status -->
+            <div class="upload-status" id="uploadStatus">
+              <div class="d-flex align-items-center mb-3">
+                <i class="fas fa-info-circle me-2"></i>
+                <span id="statusMessage">Hazırlanıyor...</span>
+              </div>
+              <div class="progress-container" id="progressContainer">
+                <div class="upload-progress">
+                  <div class="upload-progress-bar" id="progressBar" style="width: 0%"></div>
+                </div>
+                <div class="text-center mt-2">
+                  <span id="progressText">0%</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="text-center">
+              <button type="button" class="btn btn-auth btn-lg me-3" id="authBtn"><i class="fab fa-google me-2"></i>YouTube'a Bağlan</button>
+              <button type="submit" class="btn btn-upload btn-lg" id="uploadBtn" disabled><i class="fas fa-upload me-2"></i>Video Yükle</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      const videoData = <%- JSON.stringify(videoData) %>;
+      const questionId = '<%= question.id %>';
+
+      let isAuthenticated = false;
+      let uploadInProgress = false;
+
+      // Initialize page
+      document.addEventListener('DOMContentLoaded', function() {
+        checkAuthStatus();
+        setupEventListeners();
+        setupTagInput();
+      });
+
+      function setupEventListeners() {
+        // Auth button
+        document.getElementById('authBtn').addEventListener('click', authenticateYouTube);
+
+        // Upload form
+        document.getElementById('uploadForm').addEventListener('submit', handleUpload);
+
+        // Schedule radio buttons
+        document.querySelectorAll('input[name="uploadType"]').forEach(radio => {
+          radio.addEventListener('change', toggleScheduleInputs);
+        });
+
+        // Set minimum datetime to now
+        const now = new Date();
+        now.setMinutes(now.getMinutes() + 30); // At least 30 minutes in future
+        document.getElementById('scheduledTime').min = now.toISOString().slice(0, 16);
+
+        // Thumbnail file change
+        document.getElementById('thumbnailFile').addEventListener('change', handleThumbnailChange);
+
+        // Title and description change listeners
+        document.getElementById('customTitle').addEventListener('input', updateTitlePreview);
+        document.getElementById('customDescription').addEventListener('input', updateDescriptionPreview);
+      }
+
+      function setupTagInput() {
+        const newTagInput = document.getElementById('newTag');
+
+        newTagInput.addEventListener('keypress', function(e) {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            addTag();
+          }
+        });
+      }
+
+      function addTag() {
+        const input = document.getElementById('newTag');
+        const tag = input.value.trim();
+
+        if (tag && tag.length <= 500) {
+          const tagContainer = document.getElementById('tagInput');
+          const existingTags = Array.from(tagContainer.querySelectorAll('[data-tag]'))
+            .map(el => el.getAttribute('data-tag'));
+
+          if (!existingTags.includes(tag)) {
+            const tagElement = document.createElement('span');
+            tagElement.className = 'tag-badge';
+            tagElement.setAttribute('data-tag', tag);
+            tagElement.innerHTML = `${tag} <i class="fas fa-times ms-1" onclick="removeTag(this)"></i>`;
+
+            tagContainer.appendChild(tagElement);
+            input.value = '';
+          }
+        }
+      }
+
+      function removeTag(element) {
+        element.parentElement.remove();
+      }
+
+      function toggleScheduleInputs() {
+        const isScheduled = document.getElementById('uploadScheduled').checked;
+        document.getElementById('scheduleInputs').style.display = isScheduled ? 'block' : 'none';
+      }
+
+      async function checkAuthStatus() {
+        try {
+          const response = await fetch('/api/youtube/auth-status');
+          const data = await response.json();
+
+          updateAuthStatus(data.authenticated, data.user);
+        } catch (error) {
+          console.error('Auth status check failed:', error);
+          updateAuthStatus(false);
+        }
+      }
+
+      function updateAuthStatus(authenticated, user = null) {
+        isAuthenticated = authenticated;
+        const authBtn = document.getElementById('authBtn');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const authMessage = document.getElementById('authMessage');
+
+        if (authenticated) {
+          authBtn.innerHTML = '<i class="fas fa-user me-2"></i>Bağlı: ' + (user?.name || 'YouTube');
+          authBtn.disabled = true;
+          uploadBtn.disabled = false;
+          authMessage.innerHTML = '<i class="fas fa-check-circle text-success me-2"></i>YouTube hesabınıza başarıyla bağlandınız';
+        } else {
+          authBtn.innerHTML = '<i class="fab fa-google me-2"></i>YouTube\'a Bağlan';
+          authBtn.disabled = false;
+          uploadBtn.disabled = true;
+          authMessage.innerHTML = '<i class="fas fa-info-circle text-primary me-2"></i>YouTube hesabınıza bağlanmak için yetkilendirme gerekli';
+        }
+      }
+
+      function authenticateYouTube() {
+        const authWindow = window.open(
+          '/api/youtube/auth',
+          'youtube_auth',
+          'width=600,height=600,scrollbars=yes,resizable=yes'
+        );
+
+        // Check for auth completion
+        const checkClosed = setInterval(() => {
+          if (authWindow.closed) {
+            clearInterval(checkClosed);
+            setTimeout(checkAuthStatus, 1000);
+          }
+        }, 1000);
+      }
+
+      async function handleUpload(e) {
+        e.preventDefault();
+
+        if (!isAuthenticated || uploadInProgress) {
+          return;
+        }
+
+        uploadInProgress = true;
+
+        try {
+          // FormData ile tüm alanları ve dosyayı al
+          const form = document.getElementById('uploadForm');
+          const formData = new FormData(form);
+
+          // Etiketleri ekle
+          const tags = Array.from(document.querySelectorAll('#tagInput [data-tag]'))
+            .map(el => el.getAttribute('data-tag'));
+          formData.append('tags', JSON.stringify(tags));
+          formData.append('questionId', questionId);
+          formData.append('videoData', JSON.stringify(videoData));
+
+          // Upload durumunu göster
+          showUploadStatus('progress', 'Video yükleniyor...');
+
+          // XMLHttpRequest kullanarak progress tracking ile upload
+          const xhr = new XMLHttpRequest();
+
+          // Progress tracking
+          xhr.upload.addEventListener('progress', function(e) {
+            if (e.lengthComputable) {
+              const percentComplete = Math.round((e.loaded / e.total) * 100);
+              updateProgress(percentComplete);
+              document.getElementById('statusMessage').textContent = `Video yükleniyor... ${percentComplete}%`;
+            }
+          });
+
+          // Upload tamamlandığında
+          xhr.addEventListener('load', function() {
+            try {
+              const result = JSON.parse(xhr.responseText);
+
+              if (xhr.status === 200 && result.success) {
+                showUploadStatus('success', 'Video başarıyla yüklendi!', result);
+              } else {
+                showUploadStatus('error', 'Yükleme hatası: ' + (result.error || 'Bilinmeyen hata'));
+              }
+            } catch (error) {
+              showUploadStatus('error', 'Yanıt işleme hatası: ' + error.message);
+            }
+          });
+
+          // Hata durumunda
+          xhr.addEventListener('error', function() {
+            showUploadStatus('error', 'Ağ hatası oluştu');
+          });
+
+          // İsteği başlat
+          xhr.open('POST', '/api/youtube/upload');
+          xhr.send(formData);
+
+        } catch (error) {
+          console.error('Upload error:', error);
+          showUploadStatus('error', 'Bir hata oluştu: ' + error.message);
+        } finally {
+          uploadInProgress = false;
+        }
+      }
+
+      function updateProgress(percentage) {
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+
+        if (progressBar) {
+          progressBar.style.width = percentage + '%';
+        }
+        if (progressText) {
+          progressText.textContent = percentage + '%';
+        }
+      }
+
+      function showUploadStatus(type, message, data = null) {
+        const statusDiv = document.getElementById('uploadStatus');
+        const statusMessage = document.getElementById('statusMessage');
+        const progressContainer = document.getElementById('progressContainer');
+
+        // Reset classes
+        statusDiv.className = 'upload-status';
+        statusDiv.classList.add(type);
+        statusDiv.style.display = 'block';
+
+        statusMessage.textContent = message;
+
+        if (type === 'progress') {
+          progressContainer.style.display = 'block';
+          // Start progress simulation (in real implementation, this would be real progress)
+          simulateProgress();
+        } else {
+          progressContainer.style.display = 'none';
+
+          if (type === 'success' && data) {
+            statusMessage.innerHTML = `
+              ${message}
+              <br><a href="${data.videoUrl}" target="_blank" class="btn btn-sm btn-primary mt-2">
+                <i class="fab fa-youtube me-1"></i>Videoyu Görüntüle
+              </a>
+            `;
+          }
+        }
+      }
+
+      function simulateProgress() {
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        let progress = 0;
+
+        const interval = setInterval(() => {
+          progress += Math.random() * 15;
+          progress = Math.min(progress, 95);
+
+          progressBar.style.width = progress + '%';
+          progressText.textContent = Math.round(progress) + '%';
+
+          if (progress >= 95) {
+            clearInterval(interval);
+          }
+        }, 500);
+      }
+
+      function handleThumbnailChange(event) {
+        const file = event.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = function(e) {
+            const thumbnailPreview = document.getElementById('thumbnailPreview');
+            thumbnailPreview.innerHTML = `<img src="${e.target.result}" alt="Thumbnail" class="thumbnail-preview" id="thumbnailImage" />`;
+          };
+          reader.readAsDataURL(file);
+        }
+      }
+
+      function updateTitlePreview() {
+        const titlePreview = document.getElementById('titlePreview');
+        const customTitle = document.getElementById('customTitle').value;
+        titlePreview.textContent = customTitle || videoData.title;
+      }
+
+      function updateDescriptionPreview() {
+        const descriptionPreview = document.getElementById('descriptionPreview');
+        const customDescription = document.getElementById('customDescription').value;
+        descriptionPreview.textContent = customDescription || videoData.description;
+      }
+    </script>
+  </body>
+</html>

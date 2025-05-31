@@ -1,3 +1,5 @@
+require("dotenv").config();
+
 const express = require("express");
 const RSSParser = require("rss-parser");
 const axios = require("axios");
@@ -2175,7 +2177,17 @@ const ELEVENLABS_APIS_FILE = path.join(__dirname, "data", "elevenlabs_apis.json"
 async function loadElevenLabsAPIs() {
   try {
     const data = await fs.readFile(ELEVENLABS_APIS_FILE, "utf8");
-    return JSON.parse(data);
+    let apis = JSON.parse(data);
+
+    // Eğer hiç aktif API yoksa ilk API'yı aktif yap
+    const hasActiveAPI = apis.some((api) => api.active === true);
+    if (!hasActiveAPI && apis.length > 0) {
+      apis[0].active = true;
+      await saveElevenLabsAPIs(apis);
+      console.log(`Hiç aktif API bulunamadı, ${apis[0].name} otomatik aktif yapıldı`);
+    }
+
+    return apis;
   } catch {
     return [];
   }
@@ -2685,14 +2697,18 @@ async function generateElevenLabsTTS(text, voiceId, questionId, stepIndex) {
     }
 
     // API key'leri yükle
-    const apis = await loadElevenLabsAPIs();
+    let apis = await loadElevenLabsAPIs();
     if (apis.length === 0) {
       console.error("ElevenLabs API key bulunamadı");
       return null;
     }
 
-    // İlk aktif API key'i kullan
-    const activeAPI = apis.find((api) => api.active !== false) || apis[0];
+    // Aktif API'ları filtrele
+    let activeAPIs = apis.filter((api) => api.active !== false);
+    if (activeAPIs.length === 0) {
+      console.error("Aktif ElevenLabs API key bulunamadı");
+      return null;
+    }
 
     // ElevenLabs TTS API çağrısı
     const url = `${ELEVENLABS_API_URL}/text-to-speech/${voice.id}`;
@@ -2708,59 +2724,89 @@ async function generateElevenLabsTTS(text, voiceId, questionId, stepIndex) {
       },
     };
 
-    const response = await axios.post(url, requestBody, {
-      headers: {
-        Accept: "audio/mpeg",
-        "Content-Type": "application/json",
-        "xi-api-key": activeAPI.key,
-      },
-      responseType: "arraybuffer",
-    });
+    // Tüm aktif API'ları sırayla dene
+    for (let i = 0; i < activeAPIs.length; i++) {
+      const currentAPI = activeAPIs[i];
+      console.log(`Deneniyor: ${currentAPI.name} (${i + 1}/${activeAPIs.length})`);
 
-    if (response.status !== 200) {
-      console.error("ElevenLabs API hatası:", response.status, response.statusText);
-      return null;
-    }
+      try {
+        const response = await axios.post(url, requestBody, {
+          headers: {
+            Accept: "audio/mpeg",
+            "Content-Type": "application/json",
+            "xi-api-key": currentAPI.key,
+          },
+          responseType: "arraybuffer",
+        });
 
-    // Audio dosyasını kaydet
-    const audioDir = path.join(__dirname, "public", "audio");
-    if (!fsSync.existsSync(audioDir)) {
-      fsSync.mkdirSync(audioDir, { recursive: true });
-    }
+        if (response.status === 200) {
+          // Başarılı! Audio dosyasını kaydet
+          const audioDir = path.join(__dirname, "public", "audio");
+          if (!fsSync.existsSync(audioDir)) {
+            fsSync.mkdirSync(audioDir, { recursive: true });
+          }
 
-    const fileName = `elevenlabs_audio_${questionId}_step_${stepIndex}_${Date.now()}.mp3`;
-    const filePath = path.join(audioDir, fileName);
+          const fileName = `elevenlabs_audio_${questionId}_step_${stepIndex}_${Date.now()}.mp3`;
+          const filePath = path.join(audioDir, fileName);
 
-    fsSync.writeFileSync(filePath, Buffer.from(response.data));
-    console.log(`ElevenLabs TTS başarıyla oluşturuldu: ${fileName}`);
+          fsSync.writeFileSync(filePath, Buffer.from(response.data));
+          console.log(`ElevenLabs TTS başarıyla oluşturuldu: ${fileName} (API: ${currentAPI.name})`);
 
-    return `/audio/${fileName}`;
-  } catch (error) {
-    console.error("ElevenLabs TTS oluşturma hatası:", error.message);
-    if (error.response) {
-      console.error("Status:", error.response.status);
-      console.error("Data:", error.response.data);
+          // Bu API'yı aktif olarak işaretle ve diğerlerini pasif yap
+          apis = apis.map((api, index) => ({
+            ...api,
+            active: api.key === currentAPI.key, // Sadece bu API aktif
+          }));
+          await saveElevenLabsAPIs(apis);
+          console.log(`Aktif API güncellendi: ${currentAPI.name}`);
 
-      // ElevenLabs API hata mesajlarını decode et
-      if (error.response.data) {
-        try {
-          const errorData = Buffer.isBuffer(error.response.data) ? JSON.parse(error.response.data.toString()) : error.response.data;
+          return `/audio/${fileName}`;
+        }
+      } catch (error) {
+        console.error(`API ${currentAPI.name} hatası:`, error.message);
 
-          if (errorData.detail?.status === "voice_limit_reached") {
-            console.error("ElevenLabs voice limit reached:", errorData.detail.message);
-            return null; // Voice limit dolmuş, null döndür
-          } else if (errorData.detail?.status === "quota_exceeded") {
-            console.error("ElevenLabs quota exceeded:", errorData.detail.message);
-            return null;
-          } else if (errorData.detail?.message) {
-            console.error("ElevenLabs API Error:", errorData.detail.message);
+        if (error.response) {
+          console.error("Status:", error.response.status);
+
+          // Hata verilerini decode et
+          let isLimitError = false;
+          if (error.response.data) {
+            try {
+              const errorData = Buffer.isBuffer(error.response.data) ? JSON.parse(error.response.data.toString()) : error.response.data;
+
+              if (errorData.detail?.status === "voice_limit_reached" || errorData.detail?.status === "quota_exceeded" || error.response.status === 429) {
+                console.error(`${currentAPI.name} limit doldu:`, errorData.detail?.message || "Quota exceeded");
+                isLimitError = true;
+
+                // Bu API'yı pasif yap
+                apis = apis.map((api) => (api.key === currentAPI.key ? { ...api, active: false } : api));
+                await saveElevenLabsAPIs(apis);
+                console.log(`${currentAPI.name} pasif olarak işaretlendi`);
+              }
+            } catch (parseError) {
+              console.error("Error parsing ElevenLabs response:", parseError);
+            }
+          }
+
+          // Eğer limit hatası değilse ve son API ise, hata döndür
+          if (!isLimitError && i === activeAPIs.length - 1) {
+            console.error(`Tüm API'lar başarısız. Son hata: ${error.message}`);
             return null;
           }
-        } catch (parseError) {
-          console.error("Error parsing ElevenLabs response:", parseError);
+
+          // Limit hatası ise bir sonraki API'ya geç
+          if (isLimitError) {
+            console.log(`API ${currentAPI.name} limit doldu, diğer API deneniyor...`);
+            continue;
+          }
         }
       }
     }
+
+    console.error("Tüm ElevenLabs API'lar limit doldu veya başarısız");
+    return null;
+  } catch (error) {
+    console.error("ElevenLabs TTS genel hatası:", error.message);
     return null;
   }
 }
@@ -2912,8 +2958,7 @@ app.delete("/api/elevenlabs-apis/:id", async (req, res) => {
 app.patch("/api/elevenlabs-apis/:id", async (req, res) => {
   try {
     const apiId = parseInt(req.params.id);
-    const { active } = req.body;
-    const apis = await loadElevenLabsAPIs();
+    let apis = await loadElevenLabsAPIs();
 
     if (apiId < 0 || apiId >= apis.length) {
       return res.status(404).json({
@@ -2922,12 +2967,16 @@ app.patch("/api/elevenlabs-apis/:id", async (req, res) => {
       });
     }
 
-    apis[apiId].active = active;
+    // Toggle yapısı - mevcut durumun tersini al
+    const currentStatus = apis[apiId].active !== false; // undefined veya true ise true
+    apis[apiId].active = !currentStatus;
+
     await saveElevenLabsAPIs(apis);
 
     res.json({
       success: true,
-      message: "API durumu güncellendi",
+      message: `API ${apis[apiId].active ? "aktif" : "pasif"} duruma getirildi`,
+      newStatus: apis[apiId].active,
     });
   } catch (error) {
     res.status(500).json({
@@ -3018,6 +3067,384 @@ app.get("/api/elevenlabs-user-info", async (req, res) => {
     res.json({
       success: true,
       apis: results,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+// YouTube API configuration
+const { google } = require("googleapis");
+
+// YouTube OAuth konfigürasyonu
+const YOUTUBE_CLIENT_ID = process.env.YOUTUBE_CLIENT_ID;
+const YOUTUBE_CLIENT_SECRET = process.env.YOUTUBE_CLIENT_SECRET;
+const YOUTUBE_REDIRECT_URI = process.env.YOUTUBE_REDIRECT_URI;
+
+const oauth2Client = new google.auth.OAuth2(YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET, YOUTUBE_REDIRECT_URI);
+
+// YouTube scopes
+const SCOPES = ["https://www.googleapis.com/auth/youtube.upload"];
+
+// Video dosyaları için multer konfigürasyonu
+const videoStorage = {
+  destination: function (req, file, cb) {
+    const dir = path.join(__dirname, "temp", "videos");
+    if (!fsSync.existsSync(dir)) {
+      fsSync.mkdirSync(dir, { recursive: true });
+    }
+    cb(null, dir);
+  },
+  filename: function (req, file, cb) {
+    const ext = path.extname(file.originalname);
+    cb(null, `video_${req.body.questionId}_${Date.now()}${ext}`);
+  },
+};
+
+// Multer için gerekli modül
+const multer = require("multer");
+
+const videoUpload = multer({
+  storage: multer.diskStorage(videoStorage),
+  limits: {
+    fileSize: 50 * 1024 * 1024 * 1024, // 50GB limit
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith("video/")) {
+      cb(null, true);
+    } else {
+      cb(new Error("Sadece video dosyaları kabul edilir"));
+    }
+  },
+});
+
+// YouTube yetkilendirme durumu kontrol
+app.get("/api/youtube/auth-status", (req, res) => {
+  try {
+    const credentials = oauth2Client.credentials;
+    const isAuthenticated = !!(credentials && credentials.access_token);
+
+    res.json({
+      authenticated: isAuthenticated,
+      user: isAuthenticated ? { name: "YouTube User" } : null,
+    });
+  } catch (error) {
+    res.json({
+      authenticated: false,
+      error: error.message,
+    });
+  }
+});
+
+// YouTube yetkilendirme başlatma
+app.get("/api/youtube/auth", (req, res) => {
+  try {
+    const authUrl = oauth2Client.generateAuthUrl({
+      access_type: "offline",
+      scope: SCOPES,
+      prompt: "consent",
+    });
+
+    res.redirect(authUrl);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+// YouTube yetkilendirme callback
+app.get("/api/youtube/callback", async (req, res) => {
+  try {
+    const { code } = req.query;
+
+    if (!code) {
+      throw new Error("Authorization code not received");
+    }
+
+    const { tokens } = await oauth2Client.getToken(code);
+    oauth2Client.setCredentials(tokens);
+
+    // Token'ları kalıcı olarak sakla (production'da database kullanın)
+    const tokenPath = path.join(__dirname, "temp", "youtube_tokens.json");
+    fsSync.writeFileSync(tokenPath, JSON.stringify(tokens, null, 2));
+
+    res.send(`
+      <html>
+        <body>
+          <h2>YouTube Authorization Successful!</h2>
+          <p>You can now close this window.</p>
+          <script>
+            window.close();
+          </script>
+        </body>
+      </html>
+    `);
+  } catch (error) {
+    console.error("YouTube auth error:", error);
+    res.status(500).send(`
+      <html>
+        <body>
+          <h2>Authorization Failed</h2>
+          <p>Error: ${error.message}</p>
+        </body>
+      </html>
+    `);
+  }
+});
+
+// Video kaydetme endpoint'i
+app.post("/api/save-video-for-youtube", videoUpload.single("video"), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: "Video dosyası gerekli",
+      });
+    }
+
+    res.json({
+      success: true,
+      videoFile: req.file.filename,
+      filePath: req.file.path,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+// YouTube upload sayfası route
+app.get("/youtube-upload/:id", async (req, res) => {
+  try {
+    const questionId = req.params.id;
+    const videoFile = req.query.videoFile;
+
+    const questions = await loadQuestions();
+    const question = questions.find((q) => q.id == questionId);
+
+    if (!question) {
+      return res.status(404).send("Soru bulunamadı");
+    }
+
+    // Video verilerini session'dan veya temp dosyadan al
+    const tempDataPath = path.join(__dirname, "temp", `video_data_${questionId}.json`);
+    let videoData = {};
+
+    if (fsSync.existsSync(tempDataPath)) {
+      videoData = JSON.parse(fsSync.readFileSync(tempDataPath, "utf8"));
+    } else {
+      // Fallback: Basic video data
+      videoData = {
+        title: question.title,
+        description: `${question.title}\n\nStackOverflow Question: ${question.question}`,
+        keywords: [question.category, "programming", "coding", "tutorial"],
+        thumbnail: null,
+      };
+    }
+
+    res.render("youtube-upload", {
+      question,
+      videoData,
+      videoFile,
+    });
+  } catch (error) {
+    console.error("YouTube upload page error:", error);
+    res.status(500).send("Sayfa yüklenirken hata oluştu");
+  }
+});
+
+// Token'ları yükle (uygulama başlangıcında)
+function loadYouTubeTokens() {
+  try {
+    const tokenPath = path.join(__dirname, "temp", "youtube_tokens.json");
+    if (fsSync.existsSync(tokenPath)) {
+      const tokens = JSON.parse(fsSync.readFileSync(tokenPath, "utf8"));
+      oauth2Client.setCredentials(tokens);
+      console.log("YouTube tokens loaded successfully");
+    }
+  } catch (error) {
+    console.error("Error loading YouTube tokens:", error);
+  }
+}
+
+// YouTube video yükleme
+app.post(
+  "/api/youtube/upload",
+  videoUpload.fields([
+    { name: "videoFile", maxCount: 1 },
+    { name: "thumbnailFile", maxCount: 1 },
+  ]),
+  async (req, res) => {
+    try {
+      console.log("Upload request body:", req.body); // Debug için
+
+      const { questionId, customTitle, customDescription, privacy, category, uploadType, scheduledTime } = req.body;
+
+      // Tags ve videoData'yı güvenli şekilde parse et
+      let tags = [];
+      let videoData = {};
+
+      try {
+        tags = req.body.tags ? JSON.parse(req.body.tags) : [];
+      } catch (e) {
+        console.log("Tags parse error:", e);
+        tags = [];
+      }
+
+      try {
+        videoData = req.body.videoData ? JSON.parse(req.body.videoData) : {};
+      } catch (e) {
+        console.log("VideoData parse error:", e);
+        videoData = {};
+      }
+
+      // Check authentication
+      const credentials = oauth2Client.credentials;
+      if (!credentials || !credentials.access_token) {
+        return res.status(401).json({
+          success: false,
+          error: "YouTube authentication required",
+        });
+      }
+
+      // Video dosyasını kontrol et
+      if (!req.files || !req.files.videoFile || req.files.videoFile.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: "Video dosyası gerekli",
+        });
+      }
+      const videoPath = req.files.videoFile[0].path;
+
+      // YouTube API setup
+      const youtube = google.youtube({ version: "v3", auth: oauth2Client });
+
+      // Video metadata - formdan gelen özel değerler öncelikli
+      const finalTitle = customTitle || videoData.title || "Yüklenen Video";
+      const finalDescription = customDescription || videoData.description || "Açıklama yok";
+      const finalTags = tags.length > 0 ? tags : videoData.keywords || [];
+
+      const videoMetadata = {
+        snippet: {
+          title: finalTitle,
+          description: finalDescription,
+          tags: finalTags,
+          categoryId: category || "27", // Education
+          defaultLanguage: "tr",
+        },
+        status: {
+          privacyStatus: privacy || "private",
+          publishAt: uploadType === "scheduled" && scheduledTime ? new Date(scheduledTime).toISOString() : undefined,
+        },
+      };
+
+      console.log("Final video metadata:", videoMetadata); // Debug için
+
+      // Upload video
+      const uploadResponse = await youtube.videos.insert({
+        part: ["snippet", "status"],
+        resource: videoMetadata,
+        media: {
+          body: require("fs").createReadStream(videoPath),
+        },
+      });
+
+      const videoId = uploadResponse.data.id;
+      const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+
+      console.log("Upload successful, video ID:", videoId); // Debug için
+
+      // Thumbnail yükleme (eğer dosya seçildiyse)
+      if (req.files && req.files.thumbnailFile) {
+        try {
+          const thumbnailPath = req.files.thumbnailFile[0].path;
+          await youtube.thumbnails.set({
+            videoId: videoId,
+            media: {
+              body: require("fs").createReadStream(thumbnailPath),
+            },
+          });
+          console.log("Custom thumbnail uploaded successfully");
+
+          // Thumbnail dosyasını temizle
+          fsSync.unlinkSync(thumbnailPath);
+        } catch (thumbnailError) {
+          console.error("Thumbnail upload error:", thumbnailError);
+          // Thumbnail hatası video yüklemeyi engellemez
+        }
+      }
+
+      // Video dosyasını temizle
+      try {
+        fsSync.unlinkSync(videoPath);
+      } catch (cleanupError) {
+        console.error("Video cleanup error:", cleanupError);
+      }
+
+      res.json({
+        success: true,
+        videoId: videoId,
+        videoUrl: videoUrl,
+        title: finalTitle,
+        description: finalDescription,
+        tags: finalTags,
+        message: uploadType === "scheduled" ? "Video zamanlandı" : "Video başarıyla yüklendi",
+      });
+    } catch (error) {
+      console.error("YouTube upload error:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  }
+);
+
+// Token yenileme middleware
+setInterval(async () => {
+  try {
+    if (oauth2Client.credentials && oauth2Client.credentials.refresh_token) {
+      const { credentials } = await oauth2Client.refreshAccessToken();
+      oauth2Client.setCredentials(credentials);
+
+      // Güncellenmiş token'ları kaydet
+      const tokenPath = path.join(__dirname, "temp", "youtube_tokens.json");
+      fsSync.writeFileSync(tokenPath, JSON.stringify(credentials, null, 2));
+    }
+  } catch (error) {
+    console.error("Token refresh error:", error);
+  }
+}, 30 * 60 * 1000); // Her 30 dakikada bir kontrol et
+
+// Uygulama başlangıcında token'ları yükle
+loadYouTubeTokens();
+
+// Video verilerini kaydetme endpoint'i (YouTube upload için)
+app.post("/api/save-video-data", async (req, res) => {
+  try {
+    const { questionId, videoData } = req.body;
+
+    if (!questionId || !videoData) {
+      return res.status(400).json({
+        success: false,
+        error: "Question ID ve video verileri gerekli",
+      });
+    }
+
+    // Video verilerini temp dosyaya kaydet
+    const tempDataPath = path.join(__dirname, "temp", `video_data_${questionId}.json`);
+    fsSync.writeFileSync(tempDataPath, JSON.stringify(videoData, null, 2));
+
+    res.json({
+      success: true,
+      message: "Video verileri kaydedildi",
     });
   } catch (error) {
     res.status(500).json({
