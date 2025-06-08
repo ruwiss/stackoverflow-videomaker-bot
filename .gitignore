@@ -113,11 +113,7 @@ data/*.json
 data/*.csv
 
 # Generated images/screenshots (but keep code-images)
-screenshots/
 images/generated/
 
 # Keep code images for the app
 !public/code-images/
-
-# Music files
-public/musics/
