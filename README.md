@@ -1,4 +1,4 @@
-# StackOverflow RSS Çekici
+# StackOverflow RSS - Video Oluşturucu Bot
 
 StackOverflow'dan belirli kategorilerdeki soruları RSS ile çeken ve JSON formatında saklayan,
 Videoya dönüştürmeyi sağlayan bir Node.js web uygulaması.
